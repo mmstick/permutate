@@ -9,7 +9,7 @@
 //! ## Examples
 //!
 //! These are a list of examples on how to use the library to manipulate string-based data.
-//! The only thing we need to ensure is that our list of strings is in the `&[&[str]]` format.
+//! The only thing we need to ensure is that our list of strings is in the `&[&[&str]]` format.
 //!
 //! ### An individual list
 //!

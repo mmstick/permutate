@@ -6,6 +6,8 @@ If the data you are working with is not best-handled with references, this isn't
 It has been developed primarily for the goal of inclusion within the Rust implementation of
 the GNU Parallel program, which provides the ability to permutate a list of input lists.
 
+The source code documentation may be found on [Docs.rs](https://docs.rs/permutate/0.1.0/permutate/).
+
 ## Application
 
 Following the spirit of the Rust and UNIX philosophy, I am also releasing this as it's own simple application to

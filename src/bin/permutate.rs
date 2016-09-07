@@ -3,31 +3,18 @@ use permutate::Permutator;
 
 use std::env::args;
 use std::fs;
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader, StdoutLock, Write};
 use std::process::exit;
+
+mod man;
 
 fn main() {
     let stdout = io::stdout();
     let stderr = io::stderr();
     let mut stdout = stdout.lock();
     let mut stderr = stderr.lock();
-    let mut interpret_files = false;
-    let mut no_delimiters   = false;
-    let mut benchmark       = false;
 
-    let mut input = Vec::new();
-    for argument in args().skip(1) {
-        match argument.as_str() {
-            "--benchmark" => benchmark = true,
-            "-f" => interpret_files = true,
-            "-h" => {
-                let _ = stdout.write(HELP.as_bytes());
-                exit(0);
-            },
-            "-n" => no_delimiters = true,
-            _ => input.push(argument)
-        }
-    }
+    let (input, benchmark, interpret_files, no_delimiters) = parse_options(&mut stdout);
 
     let mut list_vector = Vec::new();
     match parse_arguments(&mut list_vector, &input.join(" "), interpret_files) {
@@ -81,7 +68,7 @@ fn main() {
                     let _ = stderr.write(b"no input was provided after separator.\n");
                 },
                 InputError::NotEnoughInputs  => {
-                    let _ = stderr.write(b"not enough space was provided.\n");
+                    let _ = stderr.write(b"not enough inputs were provided.\n");
                 },
             }
             let _ = stderr.write(b"Example Usage: permutate 1 2 3 ::: 4 5 6 ::: 1 2 3\n");
@@ -98,19 +85,38 @@ enum InputError {
 }
 
 
+/// Scans input arguments for flags that control the behaviour of the program.
+fn parse_options(stdout: &mut StdoutLock) -> (Vec<String>, bool, bool, bool) {
+    let mut input = Vec::new();
+    let (mut benchmark, mut interpret_files, mut no_delimiters) = (false, false, false);
+    for argument in args().skip(1) {
+        match argument.as_str() {
+            "-b" | "--benchmark" => benchmark = true,
+            "-f" | "--files" => interpret_files = true,
+            "-h" | "--help" => {
+                let _ = stdout.write(man::MANPAGE.as_bytes());
+                exit(0);
+            },
+            "-n" | "--no-delimiters" => no_delimiters = true,
+            _ => input.push(argument)
+        }
+    }
+    (input, benchmark, interpret_files, no_delimiters)
+}
+
 /// This is effectively a command-line interpreter designed specifically for this program.
 fn parse_arguments(list_collection: &mut Vec<Vec<String>>, input: &str, interpret_files: bool)
     -> Result<(), InputError>
 {
     let mut add_to_previous_list = false;
-    let mut backslash        = false;
-    let mut double_quote     = false;
-    let mut single_quote     = false;
-    let mut match_set        = false;
-    let mut interpret_files  = interpret_files;
-    let mut matches          = 0;
-    let mut current_list     = Vec::new();
-    let mut current_argument = String::new();
+    let mut backslash            = false;
+    let mut double_quote         = false;
+    let mut single_quote         = false;
+    let mut match_set            = false;
+    let mut interpret_files      = interpret_files;
+    let mut matches              = 0;
+    let mut current_list         = Vec::new();
+    let mut current_argument     = String::new();
 
     for character in input.chars() {
         if match_set {
@@ -235,46 +241,6 @@ fn file_parse(path: &str) -> Result<Vec<String>, InputError> {
     }
     Ok(inputs)
 }
-
-const HELP: &'static str = r#"NAME
-    permutate - efficient command-line permutator written in Rust
-
-SYNOPSIS
-    permutate [-f | -h] [ARGS... MODE]...
-
-DESCRIPTION
-    Permutate is a command-line permutator written in Rust, originally designed for inclusion
-    within the Rust implementation of Parallel. Following the UNIX philosophy, permutate has
-    additionally been spun into both an application and library project to serve as a standalone
-    application. The syntax for permutate is nearly identical to Parallel.
-
-OPTIONS
-    --benchmark
-        Performs a benchmark by permutation all possible values without printing.
-
-    -f
-        The first list of inputs will be interpreted as files.
-
-    -h
-        Prints this help information.
-
-    -n
-        Disable the spaced deliminters between elements.
-
-MODES
-    :::
-        All following arguments will be interpreted as arguments.
-
-    :::+
-        All following arguments will be appended to the previous list.
-
-    ::::
-        All following arguments will be interpreted as files.
-
-    ::::+
-        All following arguments from files will be appended to the previous list.
-
-"#;
 
 #[cfg(test)]
 mod test {

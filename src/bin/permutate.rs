@@ -8,9 +8,17 @@ use std::process::exit;
 
 mod man;
 
-/// 16K standard output buffer size is the maximum value due to Windows.
-/// UNIX's support 64K buffers, but there's no performance improvement.
-const BUFFER_SIZE: usize = 16 * 1024;
+#[cfg(not(unix))]
+mod platform {
+    pub const BUFFER_SIZE: usize = 16 * 1024; // Windows only supports 16K buffers.
+}
+
+#[cfg(unix)]
+mod platform {
+    pub const BUFFER_SIZE: usize = 64 * 1024; // 4.75% performance boost over 16K buffers
+}
+
+use platform::*;
 
 fn main() {
     // First, the program should grab a handle to stdout and stderr and lock them.
@@ -43,165 +51,10 @@ fn main() {
             } else {
                 // Manually buffering standard output speeds up output by 90% and
                 // reduces the required CPU cycles spent performing syscalls by 76%.
-                let mut buffer = [0u8; BUFFER_SIZE];
-                let mut current_size = 0;
                 if no_delimiters {
-                    // This first run through will count the number of bytes that will be
-                    // required to print each permutation to standard output.
-                    {
-                        // There will always be at least two elements in a permutation.
-                        let current_permutation = permutator.next().unwrap();
-                        let mut current_permutation = current_permutation.iter();
-                        let first_val = current_permutation.next().unwrap();
-                        let capacity = first_val.len();
-                        buffer[current_size..current_size + capacity]
-                            .clone_from_slice(first_val.as_bytes());
-                        current_size += capacity;
-
-                        // There will always be at least two elements in a permutation.
-                        let second_val = current_permutation.next().unwrap();
-                        let capacity = second_val.len();
-                        buffer[current_size..current_size + capacity]
-                            .clone_from_slice(second_val.as_bytes());
-                        current_size += capacity;
-
-                        for element in current_permutation {
-                            let capacity = element.len();
-                            buffer[current_size..current_size+capacity].clone_from_slice(element.as_bytes());
-                            current_size += capacity;
-                        }
-                    }
-
-                    // Append a newline after each permutation to print them on separate lines
-                    buffer[current_size..current_size+1].clone_from_slice(b"\n");
-                    current_size += 1;
-
-                    // Using the number of bytes of the first iteration, we can calculate
-                    // how many iterations that we can safely fit into our buffer.
-                    let permutations_per_buffer = BUFFER_SIZE / current_size;
-
-                    // Each permutation will check to see if the max number of permutations per
-                    // buffer has been allocated and prints it to standard output if true.
-                    let mut counter = 1;
-                    for permutation in permutator {
-                        if counter == permutations_per_buffer {
-                            let _ = stdout.write_all(&buffer[..]);
-                            buffer = [0; BUFFER_SIZE];
-                            current_size = 0;
-                            counter = 0;
-                        }
-
-                        // There will always be at least two elements in a permutation.
-                        let mut current_permutation = permutation.iter();
-                        let first_val = current_permutation.next().unwrap();
-                        let capacity = first_val.len();
-                        buffer[current_size..current_size + capacity]
-                            .clone_from_slice(first_val.as_bytes());
-                        current_size += capacity;
-
-                        // There will always be at least two elements in a permutation.
-                        let second_val = current_permutation.next().unwrap();
-                        let capacity = second_val.len();
-                        buffer[current_size..current_size + capacity]
-                            .clone_from_slice(second_val.as_bytes());
-                        current_size += capacity;
-
-                        for element in current_permutation {
-                            let capacity = element.len();
-                            buffer[current_size..current_size+capacity].clone_from_slice(element.as_bytes());
-                            current_size += capacity;
-                        }
-                        buffer[current_size..current_size+1].clone_from_slice(b"\n");
-                        current_size += 1;
-                        counter += 1;
-                    }
-
-                    // Print the remaining buffer to standard output.
-                    let _ = stdout.write_all(&buffer[..]);
+                    permutate_without_delims(&mut stdout, &mut permutator);
                 } else {
-                    // This first run through will count the number of bytes that will be
-                    // required to print each permutation to standard output.
-                    {
-                        let current_permutation = permutator.next().unwrap();
-                        let mut current_permutation = current_permutation.iter();
-
-                        // The first element will print a space after the element.
-                        let first_val = current_permutation.next().unwrap();
-                        let capacity = first_val.len();
-                        buffer[current_size..current_size + capacity]
-                            .clone_from_slice(first_val.as_bytes());
-                        current_size += capacity + 1;
-                        buffer[current_size - 1..current_size].clone_from_slice(b" ");
-
-                        // There will always be at least two elements in a permutation.
-                        let second_val = current_permutation.next().unwrap();
-                        let capacity = second_val.len();
-                        buffer[current_size..current_size + capacity]
-                            .clone_from_slice(second_val.as_bytes());
-                        current_size += capacity;
-
-                        for element in current_permutation {
-                            buffer[current_size..current_size+1].clone_from_slice(b" ");
-                            current_size += 1;
-                            let capacity = element.len();
-                            buffer[current_size..current_size+capacity].clone_from_slice(element.as_bytes());
-                            current_size += capacity;
-                        }
-                    }
-
-                    // Using the number of bytes of the first iteration, we can calculate
-                    // how many iterations that we can safely fit into our buffer.
-                    buffer[current_size..current_size+1].clone_from_slice(b"\n");
-                    current_size += 1;
-
-                    // Using the number of bytes of the first iteration, we can calculate
-                    // how many iterations that we can safely fit into our buffer.
-                    let permutations_per_buffer = BUFFER_SIZE / current_size;
-
-                    // Each permutation will check to see if the max number of permutations per
-                    // buffer has been allocated and prints it to standard output if true.
-                    let mut counter = 1;
-                    for permutation in permutator {
-                        if counter == permutations_per_buffer {
-                            let _ = stdout.write_all(&buffer[..]);
-                            buffer = [0; BUFFER_SIZE];
-                            current_size = 0;
-                            counter = 0;
-                        }
-
-                        let mut current_permutation = permutation.iter();
-
-                        { // The first element will print a space after the element.
-                            let first_val = current_permutation.next().unwrap();
-                            let capacity = first_val.len();
-                            buffer[current_size..current_size + capacity]
-                                .clone_from_slice(first_val.as_bytes());
-                            current_size += capacity + 1;
-                            buffer[current_size - 1..current_size].clone_from_slice(b" ");
-                        }
-
-                        { // There will always be at least two elements in a permutation.
-                            let second_val = current_permutation.next().unwrap();
-                            let capacity = second_val.len();
-                            buffer[current_size..current_size + capacity]
-                                .clone_from_slice(second_val.as_bytes());
-                            current_size += capacity
-                        }
-
-                        for element in current_permutation {
-                            let capacity = element.len();
-                            buffer[current_size..current_size+1].clone_from_slice(b" ");
-                            current_size += 1;
-                            buffer[current_size..current_size+capacity].clone_from_slice(element.as_bytes());
-                            current_size += capacity;
-                        }
-                        buffer[current_size..current_size+1].clone_from_slice(b"\n");
-                        current_size += 1;
-                        counter += 1;
-                    }
-
-                    // Print the remaining buffer to standard output.
-                    let _ = stdout.write_all(&buffer[..]);
+                    permutate(&mut stdout, &mut permutator);
                 }
             }
         },
@@ -225,6 +78,138 @@ fn main() {
             exit(1);
         }
     }
+}
+
+fn buffer_value(buffer: &mut [u8; BUFFER_SIZE], current_size: usize, value: &str) -> usize {
+    let capacity = value.len();
+    buffer[current_size..current_size + capacity]
+        .clone_from_slice(value.as_bytes());
+    current_size + capacity
+}
+
+fn permutate(stdout: &mut StdoutLock, permutator: &mut Permutator<str>) {
+    let mut buffer = [0u8; BUFFER_SIZE];
+    let mut current_size = 0;
+    // This first run through will count the number of bytes that will be
+    // required to print each permutation to standard output.
+    {
+        let current_permutation = permutator.next().unwrap();
+        let mut current_permutation = current_permutation.iter();
+
+        // The first element will print a space after the element.
+        current_size = buffer_value(&mut buffer, current_size,
+            current_permutation.next().unwrap());
+        buffer[current_size] = b' ';
+        current_size += 1;
+
+        // There will always be at least two elements in a permutation.
+        current_size = buffer_value(&mut buffer, current_size,
+            current_permutation.next().unwrap());
+
+        for element in current_permutation {
+            buffer[current_size] = b' ';
+            current_size += 1;
+            current_size = buffer_value(&mut buffer, current_size, element);
+        }
+    }
+
+    // Using the number of bytes of the first iteration, we can calculate
+    // how many iterations that we can safely fit into our buffer.
+    buffer[current_size] = b'\n';
+    current_size += 1;
+
+    // Using the number of bytes of the first iteration, we can calculate
+    // how many iterations that we can safely fit into our buffer.
+    let permutations_per_buffer = BUFFER_SIZE / current_size;
+
+    // Each permutation will check to see if the max number of permutations per
+    // buffer has been allocated and prints it to standard output if true.
+    let mut counter = 1;
+    for permutation in permutator {
+        if counter == permutations_per_buffer {
+            let _ = stdout.write_all(&buffer[..]);
+            buffer = [0; BUFFER_SIZE];
+            current_size = 0;
+            counter = 0;
+        }
+
+        let mut current_permutation = permutation.iter();
+
+        // The first element will print a space after the element.
+        current_size = buffer_value(&mut buffer, current_size,
+            current_permutation.next().unwrap());
+        buffer[current_size] = b' ';
+        current_size += 1;
+
+        // There will always be at least two elements in a permutation.
+        current_size = buffer_value(&mut buffer, current_size,
+            current_permutation.next().unwrap());
+
+        for element in current_permutation {
+            buffer[current_size] = b' ';
+            current_size += 1;
+            current_size = buffer_value(&mut buffer, current_size, element);
+        }
+        buffer[current_size] = b'\n';
+        current_size += 1;
+        counter += 1;
+    }
+
+    // Print the remaining buffer to standard output.
+    let _ = stdout.write_all(&buffer[..]);
+}
+
+fn permutate_without_delims(stdout: &mut StdoutLock, permutator: &mut Permutator<str>) {
+    // This first run through will count the number of bytes that will be
+    // required to print each permutation to standard output.
+    let mut buffer = [0u8; BUFFER_SIZE];
+    let mut current_size = 0;
+    {
+        // There will always be at least two elements in a permutation.
+        let permutation     = permutator.next().unwrap();
+        let mut permutation = permutation.iter();
+        current_size = buffer_value(&mut buffer, current_size, permutation.next().unwrap());
+        current_size = buffer_value(&mut buffer, current_size, permutation.next().unwrap());
+        for element in permutation {
+            current_size = buffer_value(&mut buffer, current_size, element);
+        }
+    }
+
+    // Append a newline after each permutation to print them on separate lines
+    buffer[current_size] = b'\n';
+    current_size += 1;
+
+    // Using the number of bytes of the first iteration, we can calculate
+    // how many iterations that we can safely fit into our buffer.
+    let permutations_per_buffer = BUFFER_SIZE / current_size;
+
+    // Each permutation will check to see if the max number of permutations per
+    // buffer has been allocated and prints it to standard output if true.
+    let mut counter = 1;
+    for permutation in permutator {
+        let mut permutation = permutation.iter();
+        if counter == permutations_per_buffer {
+            let _ = stdout.write_all(&buffer[..]);
+            buffer = [0; BUFFER_SIZE];
+            current_size = 0;
+            counter = 0;
+        }
+
+        // There will always be at least two elements in a permutation.
+        current_size = buffer_value(&mut buffer, current_size, permutation.next().unwrap());
+        current_size = buffer_value(&mut buffer, current_size, permutation.next().unwrap());
+        for element in permutation {
+            current_size = buffer_value(&mut buffer, current_size, element);
+        }
+
+        buffer[current_size] = b'\n';
+        current_size += 1;
+
+        counter += 1;
+    }
+
+    // Print the remaining buffer to standard output.
+    let _ = stdout.write_all(&buffer[..]);
 }
 
 #[derive(Debug)]
@@ -374,7 +359,7 @@ fn parse_arguments(list_collection: &mut Vec<Vec<String>>, input: &str, interpre
         list_collection.push(current_list);
     }
 
-    if list_collection.len() == 0 {
+    if list_collection.len() == 0 || (list_collection.len() == 1 && list_collection[0].len() == 1) {
         return Err(InputError::NotEnoughInputs)
     } else {
         Ok(())

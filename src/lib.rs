@@ -162,6 +162,45 @@ impl<'a, T: 'a + ?Sized> Permutator<'a, T> {
         self.counter.reset();
         self.curr_iteration = 0;
     }
+
+    /// Provides similar functionality as the `Iterator` traits `next` method, but allows the ability to either
+    /// supply your own buffer or re-use the `Vec` created by a prior `next` in order to avoid extra allocations.
+    ///
+    /// - If the method returns `Ok(true)`, then there are more values to compute.
+    /// - If the method returns `Ok(false)`, then all values have been exhausted.
+    /// - If an error occurs, it's because the supplied buffer was too small.
+    pub fn next_with_buffer(&mut self, buffer: &mut [&'a T]) -> Result<bool, &'static str> {
+        if self.curr_iteration == self.max_iterations {
+            return Ok(false)
+        }
+
+        if buffer.len() < self.nlists {
+            return Err("buffer array is not large enough to contain the permutation");
+        }
+
+        self.curr_iteration += 1;
+
+        let mut index = 0;
+        unsafe {
+            if self.single_list {
+                for value in self.counter.counter.iter().map(|v| *self.lists.get_unchecked(0).get_unchecked(*v)) {
+                    *buffer.get_unchecked_mut(index) = value;
+                    index += 1;
+                }
+            } else {
+                for value in self.counter.counter.iter().enumerate()
+                    .map(|(list, value)| *self.lists.get_unchecked(list).get_unchecked(*value))
+                {
+                    *buffer.get_unchecked_mut(index) = value;
+                    index += 1;
+                }
+            };
+        }
+
+        self.counter.increment(&self.nlists - 1);
+
+        Ok(true)
+    }
 }
 
 impl<'a, T: 'a + ?Sized> Iterator for Permutator<'a, T> {

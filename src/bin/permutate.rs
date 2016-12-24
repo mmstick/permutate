@@ -1,13 +1,16 @@
 extern crate permutate;
+
 mod arguments;
 mod buffer;
 mod man;
+
+use std::io::{self, StdoutLock, Write};
+use std::process::exit;
+
 use arguments::InputError;
 use buffer::StdoutBuffer;
 use buffer::platform::BUFFER_SIZE;
 use permutate::Permutator;
-use std::io::{self, StdoutLock, Write};
-use std::process::exit;
 
 fn main() {
     // First, the program should grab a handle to stdout and stderr and lock them.
@@ -68,11 +71,11 @@ fn main() {
 
 fn permutate(stdout: &mut StdoutLock, permutator: &mut Permutator<str>) {
     let mut buffer = StdoutBuffer::new();
+    let mut current_output = permutator.next().unwrap();
     // This first run through will count the number of bytes that will be
     // required to print each permutation to standard output.
     {
-        let current_permutation = permutator.next().unwrap();
-        let mut current_permutation = current_permutation.iter();
+        let mut current_permutation = current_output.iter();
         buffer.write(current_permutation.next().unwrap().as_bytes());
         buffer.push(b' ');
         buffer.write(current_permutation.next().unwrap().as_bytes());
@@ -91,14 +94,14 @@ fn permutate(stdout: &mut StdoutLock, permutator: &mut Permutator<str>) {
     // Each permutation will check to see if the max number of permutations per
     // buffer has been allocated and prints it to standard output if true.
     let mut counter = 1;
-    for permutation in permutator {
+    while let Ok(true) = permutator.next_with_buffer(&mut current_output) {
         if counter == permutations_per_buffer {
             buffer.write_and_clear(stdout);
             counter = 0;
         }
 
         // The first element will print a space after the element.
-        let mut current_permutation = permutation.iter();
+        let mut current_permutation = current_output.iter();
         buffer.write(current_permutation.next().unwrap().as_bytes());
         buffer.push(b' ');
         buffer.write(current_permutation.next().unwrap().as_bytes());
@@ -118,10 +121,10 @@ fn permutate_without_delims(stdout: &mut StdoutLock, permutator: &mut Permutator
     // This first run through will count the number of bytes that will be
     // required to print each permutation to standard output.
     let mut buffer = StdoutBuffer::new();
+    let mut current_output = permutator.next().unwrap();
     {
         // There will always be at least two elements in a permutation.
-        let permutation     = permutator.next().unwrap();
-        let mut permutation = permutation.iter();
+        let mut permutation = current_output.iter();
         buffer.write(permutation.next().unwrap().as_bytes());
         buffer.write(permutation.next().unwrap().as_bytes());
         for element in permutation { buffer.write(element.as_bytes()); }
@@ -137,8 +140,8 @@ fn permutate_without_delims(stdout: &mut StdoutLock, permutator: &mut Permutator
     // Each permutation will check to see if the max number of permutations per
     // buffer has been allocated and prints it to standard output if true.
     let mut counter = 1;
-    for permutation in permutator {
-        let mut permutation = permutation.iter();
+    while let Ok(true) = permutator.next_with_buffer(&mut current_output) {
+        let mut permutation = current_output.iter();
         if counter == permutations_per_buffer {
             buffer.write_and_clear(stdout);
             counter = 0;

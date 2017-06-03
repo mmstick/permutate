@@ -191,6 +191,11 @@ impl<'a, T: 'a + ?Sized> Permutator<'a, T> {
         (self.indexes.curr_iter, self.indexes.indexes.clone())
     }
 
+    /// Returns the total number of permutations possible
+    pub fn max_permutations(&self) -> usize {
+        self.indexes.max_iters
+    }
+
     /// Resets the internal state of the `Permutator` to allow you to start permutating again.
     pub fn reset(&mut self) {
         self.indexes.reset();
@@ -374,6 +379,11 @@ impl<'a, T: Copy> ValuePermutator<'a, T> {
     /// Obtains the current iteration number and the index counter's indexes.
     pub fn get_index(&self) -> (usize, Vec<usize>) {
         (self.indexes.curr_iter, self.indexes.indexes.clone())
+    }
+
+    /// Returns the total number of permutations possible
+    pub fn max_permutations(&self) -> usize {
+        self.indexes.max_iters
     }
 
     /// Resets the internal state of the `Permutator` to allow you to start permutating again.

@@ -94,7 +94,7 @@ fn permutate(stdout: &mut StdoutLock, permutator: &mut Permutator<str>) {
     // Each permutation will check to see if the max number of permutations per
     // buffer has been allocated and prints it to standard output if true.
     let mut counter = 1;
-    while let Ok(true) = permutator.next_with_buffer(&mut current_output) {
+    while permutator.next_with_buffer(&mut current_output) {
         if counter == permutations_per_buffer {
             buffer.write_and_clear(stdout);
             counter = 0;
@@ -140,7 +140,7 @@ fn permutate_without_delims(stdout: &mut StdoutLock, permutator: &mut Permutator
     // Each permutation will check to see if the max number of permutations per
     // buffer has been allocated and prints it to standard output if true.
     let mut counter = 1;
-    while let Ok(true) = permutator.next_with_buffer(&mut current_output) {
+    while permutator.next_with_buffer(&mut current_output) {
         let mut permutation = current_output.iter();
         if counter == permutations_per_buffer {
             buffer.write_and_clear(stdout);

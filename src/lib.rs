@@ -1,10 +1,17 @@
 //! # Permutate
 //!
-//! Permutate exists as both a library and application for permutating generic lists of lists as
-//! well as individual lists using an original Rust-based algorithm which works with references.
+//! Permutate exists as both a library and application for permutating generic lists of lists, as
+//! well as individual lists, using an original Rust-based algorithm which works with references.
 //! If the data you are working with is not best-handled with references, this isn't for you.
 //! It has been developed primarily for the goal of inclusion within the Rust implementation of
-//! the GNU Parallel program, which provides the ability to permutate a list of input lists.
+//! the GNU Parallel program, and brace expansions within Redox's Ion shell.
+//!
+//! Permutations work by incrementing a vector of index counters, and returning a vector of
+//! references to the underlying data. For optimal usage, it is best to perform one iteration
+//! with the `next()` method, and follow up successive iterations with the `next_with_buffer()`
+//! method, so that you can re-use the previous vector allocation. It is also possible to obtain
+//! the state of the internal index counters by using the `get_indexes()` method, and set the
+//! state with the `set_indexes` method.
 //!
 //! ## Examples
 //!
@@ -23,15 +30,19 @@
 //!     let mut stdout = stdout.lock();
 //!     let list: &[&str] = &["one", "two", "three", "four"];
 //!     let list = [list];
-//!     let permutator = Permutator::new(&list[..]);
+//!     let mut permutator = Permutator::new(&list[..]);
 //!
-//!     // NOTE: print! macros are incredibly slow, so printing directly
-//!     // to stdout is faster.
-//!     for permutation in permutator {
-//!         for element in permutation {
+//!     if let Some(mut permutation) = permutator.next() {
+//!         for element in &permutation {
 //!             let _ = stdout.write(element.as_bytes());
 //!         }
 //!         let _ = stdout.write(b"\n");
+//!         while permutator.next_with_buffer(&mut permutation) {
+//!             for element in &permutation {
+//!                 let _ = stdout.write(element.as_bytes());
+//!             }
+//!             let _ = stdout.write(b"\n");
+//!         }
 //!     }
 //! }
 //! ```
@@ -51,15 +62,19 @@
 //!         &["four", "five", "six"][..],
 //!         &["seven", "eight", "nine"][..],
 //!     ];
-//!     let permutator = Permutator::new(&lists[..]);
+//!     let mut permutator = Permutator::new(&lists[..]);
 //!
-//!     // NOTE: print! macros are incredibly slow, so printing directly
-//!     // to stdout is faster.
-//!     for permutation in permutator {
-//!         for element in permutation {
+//!     if let Some(mut permutation) = permutator.next() {
+//!         for element in &permutation {
 //!             let _ = stdout.write(element.as_bytes());
 //!         }
 //!         let _ = stdout.write(b"\n");
+//!         while permutator.next_with_buffer(&mut permutation) {
+//!             for element in &permutation {
+//!                 let _ = stdout.write(element.as_bytes());
+//!             }
+//!             let _ = stdout.write(b"\n");
+//!         }
 //!     }
 //! }
 //! ```
@@ -94,15 +109,19 @@
 //!         .map(AsRef::as_ref).collect();
 //!
 //!     // Pass the `Vec<&[&str]>` as an `&[&[&str]]`
-//!     let permutator = Permutator::new(&vector_of_arrays[..]);
+//!     let mut permutator = Permutator::new(&vector_of_arrays[..]);
 //!
-//!     // NOTE: print! macros are incredibly slow, so printing directly
-//!     // to stdout is faster.
-//!     for permutation in permutator {
-//!         for element in permutation {
+//!     if let Some(mut permutation) = permutator.next() {
+//!         for element in &permutation {
 //!             let _ = stdout.write(element.as_bytes());
 //!         }
 //!         let _ = stdout.write(b"\n");
+//!         while permutator.next_with_buffer(&mut permutation) {
+//!             for element in &permutation {
+//!                 let _ = stdout.write(element.as_bytes());
+//!             }
+//!             let _ = stdout.write(b"\n");
+//!         }
 //!     }
 //! }
 //! ```
@@ -111,12 +130,8 @@
 /// The `Permutator` contains the state of the iterator as well as the references to inputs
 /// that are being permutated. The input should be provided as an array of an array of references.
 pub struct Permutator<'a, T: 'a + ?Sized> {
-    /// The counter is used to point to the next permutation sequence.
-    counter:        Counter,
-    /// Tracks how many times the `Permutator` has been used.
-    curr_iteration: usize,
-    /// The maximum number of permutations until all possible values have been computed.
-    max_iterations: usize,
+    /// The indexes is used to point to the next permutation sequence.
+    indexes:        IndexCounters,
     /// The internal data that the permutator is permutating against.
     lists:          &'a [&'a [&'a T]],
     /// The total number of lists that is being permutated with.
@@ -133,7 +148,7 @@ impl<'a, T: 'a + ?Sized> Permutator<'a, T> {
         let mut nlists  = lists.len();
         let single_list = nlists == 1;
 
-        // The max counter values are calculated as the number of elements
+        // The max indexes values are calculated as the number of elements
         // in a slice, minus one to account for the zeroth value.
         let nvalues = if single_list {
             nlists = lists[0].len();
@@ -145,22 +160,42 @@ impl<'a, T: 'a + ?Sized> Permutator<'a, T> {
         let max_iters = nvalues.iter().map(|x| x + 1).product();
 
         Permutator {
-            counter: Counter {
-                counter: vec![0; nlists],
-                max:     nvalues,
+            indexes: IndexCounters {
+                indexes:   vec![0; nlists],
+                max:       nvalues,
+                curr_iter: 0,
+                max_iters: max_iters,
             },
-            curr_iteration: 0,
-            lists:          lists,
-            max_iterations: max_iters,
-            nlists:         nlists,
-            single_list:    single_list
+            lists:       lists,
+            nlists:      nlists,
+            single_list: single_list
         }
+    }
+
+    /// Sets the internal index counter's values to a specific state, which you will
+    /// typically obtain when using the `get_index()` method. The `iter_no` parameter
+    /// will specify what the iteration's position should be. If, for example, you set
+    /// this value to `0`, then it will iterate through all possible permutations,
+    /// including looping around back to the beginning and generating permutations
+    /// for all possible values before the supplied state.
+    ///
+    /// # Panics
+    /// This method will panic if the supplied indexes vector is not the correct length
+    pub fn set_index(&mut self, iter_no: usize, indexes: Vec<usize>) {
+        debug_assert!(indexes.len() == self.indexes.max.len(), "indexes have an invalid length");
+        self.indexes.indexes = indexes;
+        self.indexes.curr_iter = iter_no;
+    }
+
+    /// Obtains the current iteration number and the index counter's indexes.
+    pub fn get_index(&self) -> (usize, Vec<usize>) {
+        (self.indexes.curr_iter, self.indexes.indexes.clone())
     }
 
     /// Resets the internal state of the `Permutator` to allow you to start permutating again.
     pub fn reset(&mut self) {
-        self.counter.reset();
-        self.curr_iteration = 0;
+        self.indexes.reset();
+        self.indexes.curr_iter = 0;
     }
 
     /// Provides similar functionality as the `Iterator` traits `next` method, but allows the ability to either
@@ -169,26 +204,25 @@ impl<'a, T: 'a + ?Sized> Permutator<'a, T> {
     /// - If the method returns `Ok(true)`, then there are more values to compute.
     /// - If the method returns `Ok(false)`, then all values have been exhausted.
     /// - If an error occurs, it's because the supplied buffer was too small.
-    pub fn next_with_buffer(&mut self, buffer: &mut [&'a T]) -> Result<bool, &'static str> {
-        if self.curr_iteration == self.max_iterations {
-            return Ok(false)
+    pub fn next_with_buffer(&mut self, buffer: &mut [&'a T]) -> bool {
+        if self.indexes.max_iters != 0 {
+            if self.indexes.curr_iter == self.indexes.max_iters {
+                return false
+            }
         }
+        debug_assert!(buffer.len() >= self.nlists, "buffer is not large enough to contain the permutation");
 
-        if buffer.len() < self.nlists {
-            return Err("buffer array is not large enough to contain the permutation");
-        }
-
-        self.curr_iteration += 1;
+        self.indexes.curr_iter += 1;
 
         let mut index = 0;
         unsafe {
             if self.single_list {
-                for value in self.counter.counter.iter().map(|v| *self.lists.get_unchecked(0).get_unchecked(*v)) {
+                for value in self.indexes.indexes.iter().map(|v| *self.lists.get_unchecked(0).get_unchecked(*v)) {
                     *buffer.get_unchecked_mut(index) = value;
                     index += 1;
                 }
             } else {
-                for value in self.counter.counter.iter().enumerate()
+                for value in self.indexes.indexes.iter().enumerate()
                     .map(|(list, value)| *self.lists.get_unchecked(list).get_unchecked(*value))
                 {
                     *buffer.get_unchecked_mut(index) = value;
@@ -197,87 +231,126 @@ impl<'a, T: 'a + ?Sized> Permutator<'a, T> {
             };
         }
 
-        self.counter.increment(&self.nlists - 1);
+        self.indexes.increment(&self.nlists - 1);
 
-        Ok(true)
+        true
     }
 }
 
 impl<'a, T: 'a + ?Sized> Iterator for Permutator<'a, T> {
     type Item = Vec<&'a T>;
 
+    fn nth(&mut self, mut n: usize) -> Option<Vec<&'a T>> {
+        loop {
+            if self.indexes.max_iters != 0 {
+                if self.indexes.curr_iter == self.indexes.max_iters {
+                    return None
+                }
+            }
+
+            self.indexes.curr_iter += 1;
+
+            if n == 0 {
+                let output = if self.single_list {
+                    self.indexes.indexes.iter()
+                        .map(|value| unsafe {
+                            *self.lists.get_unchecked(0).get_unchecked(*value)
+                        })
+                        .collect::<Vec<&T>>()
+                } else {
+                    self.indexes.indexes.iter().enumerate()
+                        .map(|(list, value)| unsafe {
+                            *self.lists.get_unchecked(list).get_unchecked(*value)
+                        })
+                        .collect::<Vec<&T>>()
+                };
+
+                self.indexes.increment(&self.nlists - 1);
+                return Some(output)
+            }
+
+            self.indexes.increment(&self.nlists - 1);
+            n -= 1;
+        }
+    }
+
     fn next(&mut self) -> Option<Vec<&'a T>> {
         // Without this check, the permutator would cycle forever and never return `None`
         // because my incrementing algorithim prohibits it.
-        if self.curr_iteration == self.max_iterations {
-            return None
+        if self.indexes.max_iters != 0 {
+            if self.indexes.curr_iter == self.indexes.max_iters {
+                return None
+            }
         }
 
-        self.curr_iteration += 1;
+        self.indexes.curr_iter += 1;
 
-        // Generates the next permutation sequence using the current counter.
+        // Generates the next permutation sequence using the current indexes.
         // We are using `get_unchecked()` here because the incrementing
         // algorithim prohibits values from being out of bounds.
         let output = if self.single_list {
-            self.counter.counter.iter()
+            self.indexes.indexes.iter()
                 .map(|value| unsafe {
                     *self.lists.get_unchecked(0).get_unchecked(*value)
                 })
                 .collect::<Vec<&T>>()
         } else {
-            self.counter.counter.iter().enumerate()
+            self.indexes.indexes.iter().enumerate()
                 .map(|(list, value)| unsafe {
                     *self.lists.get_unchecked(list).get_unchecked(*value)
                 })
                 .collect::<Vec<&T>>()
         };
 
-        // Increment the counter to point towards the next set of values.
-        self.counter.increment(&self.nlists - 1);
+        // Increment the indexes to point towards the next set of values.
+        self.indexes.increment(&self.nlists - 1);
 
         // Return the collected permutation
         Some(output)
     }
 }
 
+#[derive(Clone, Debug)]
 /// Tracks the state of the indexes of each list.
-struct Counter {
-    /// The current state of the counter
-    counter: Vec<usize>,
-    /// The max possible values for each counter
-    max:     Vec<usize>
+pub struct IndexCounters {
+    /// The current state of the indexes
+    indexes: Vec<usize>,
+    /// The max possible values for each indexes
+    max:     Vec<usize>,
+    /// The current iteration position
+    curr_iter: usize,
+    /// The maximum number of iterations to perform
+    max_iters: usize,
 }
 
-impl Counter {
-    fn increment(&mut self, nlists: usize) {
-        // Check to see if the Nth value is on it's bounds
-        // let (current, max) = unsafe {(
-        //     self.counter.get_unchecked(nlists),
-        //     self.max.get_unchecked(nlists)
-        // )};
-        let mut increment = false;
-        {
-            let current = unsafe { self.counter.get_unchecked_mut(nlists) };
-            let max     = unsafe { self.max.get_unchecked(nlists) };
-            if *current == *max {
-                // Recurse until nlist is zero.
-                if nlists != 0 {
-                    *current = 0;
-                    increment = true;
+impl IndexCounters {
+    /// Increments & resets index indexes according to their maximum values.
+    fn increment(&mut self, mut nlists: usize) {
+        loop {
+            let mut increment = false;
+            {
+                let current = unsafe { self.indexes.get_unchecked_mut(nlists) };
+                let max     = unsafe { self.max.get_unchecked(nlists) };
+                if *current == *max {
+                    if nlists != 0 {
+                        *current = 0;
+                        increment = true;
+                    }
+                } else {
+                    *current += 1;
                 }
-            } else {
-                // Increment the Nth value's index by one.
-                *current += 1;
             }
-        }
 
-        if increment {
-            self.increment(nlists - 1);
+            if increment {
+                nlists -= 1;
+            } else {
+                break
+            }
         }
     }
 
     fn reset(&mut self) {
-        for value in self.counter.iter_mut() { *value = 0; }
+        for value in self.indexes.iter_mut() { *value = 0; }
     }
 }
 
@@ -320,6 +393,11 @@ mod test {
         for (output, expected) in Permutator::new(&inputs[..]).zip(expected[..].iter()) {
             assert_eq!(&output, expected);
         }
+
+        let mut permutator = Permutator::new(&inputs[..]);
+        let mut expected = expected[..].iter();
+        assert_eq!(&(permutator.nth(10).unwrap()), expected.nth(10).unwrap());
+        assert_eq!(&(permutator.nth(0).unwrap()), expected.nth(0).unwrap());
     }
 
     #[test]

@@ -1,9 +1,8 @@
 //! # Permutate
 //!
 //! Permutate exists as both a library and application for permutating generic lists of lists, as
-//! well as individual lists, using an original Rust-based algorithm which works with references.
-//! If the data you are working with is not best-handled with references, this isn't for you.
-//! It has been developed primarily for the goal of inclusion within the Rust implementation of
+//! well as individual lists, using an original Rust-based algorithm. It has been developed
+//! primarily for the goal of inclusion within the Rust implementation of
 //! the GNU Parallel program, and brace expansions within Redox's Ion shell.
 //!
 //! Permutations work by incrementing a vector of index counters, and returning a vector of
@@ -201,9 +200,11 @@ impl<'a, T: 'a + ?Sized> Permutator<'a, T> {
     /// Provides similar functionality as the `Iterator` traits `next` method, but allows the ability to either
     /// supply your own buffer or re-use the `Vec` created by a prior `next` in order to avoid extra allocations.
     ///
-    /// - If the method returns `Ok(true)`, then there are more values to compute.
-    /// - If the method returns `Ok(false)`, then all values have been exhausted.
-    /// - If an error occurs, it's because the supplied buffer was too small.
+    /// - If the method returns `true`, then there are more values to compute.
+    /// - If the method returns `false`, then all values have been exhausted.
+    ///
+    /// # Panics
+    /// This method will panic if the supplied buffer's length is invalid.
     pub fn next_with_buffer(&mut self, buffer: &mut [&'a T]) -> bool {
         if self.indexes.max_iters != 0 {
             if self.indexes.curr_iter == self.indexes.max_iters {
@@ -300,6 +301,191 @@ impl<'a, T: 'a + ?Sized> Iterator for Permutator<'a, T> {
                     *self.lists.get_unchecked(list).get_unchecked(*value)
                 })
                 .collect::<Vec<&T>>()
+        };
+
+        // Increment the indexes to point towards the next set of values.
+        self.indexes.increment(&self.nlists - 1);
+
+        // Return the collected permutation
+        Some(output)
+    }
+}
+
+/// The `ValuePermutator` contains the state of the iterator as well as the values to inputs
+/// that are being permutated. The input should be provided as an array of an array of values.
+pub struct ValuePermutator<'a, T: 'a + Copy> {
+    /// The indexes is used to point to the next permutation sequence.
+    indexes:        IndexCounters,
+    /// The internal data that the permutator is permutating against.
+    lists:          &'a [&'a [T]],
+    /// The total number of lists that is being permutated with.
+    nlists:         usize,
+    /// Whether the permutator is permutating against a single list, or multiple lists.
+    single_list:    bool
+}
+
+impl<'a, T: Copy> ValuePermutator<'a, T> {
+    /// Initialize a new `ValuePermutator` with the list of input lists to permutate with.
+    /// The input may be provided as either multiple lists via an array of arrays, or a single
+    /// list as an array within an array.
+    pub fn new(lists: &'a [&'a [T]]) -> ValuePermutator<T> {
+        let mut nlists  = lists.len();
+        let single_list = nlists == 1;
+
+        // The max indexes values are calculated as the number of elements
+        // in a slice, minus one to account for the zeroth value.
+        let nvalues = if single_list {
+            nlists = lists[0].len();
+            (0..nlists).map(|_| nlists - 1).collect::<Vec<usize>>()
+        } else {
+            lists.iter().map(|list| list.len() - 1).collect::<Vec<usize>>()
+        };
+
+        let max_iters = nvalues.iter().map(|x| x + 1).product();
+
+        ValuePermutator {
+            indexes: IndexCounters {
+                indexes:   vec![0; nlists],
+                max:       nvalues,
+                curr_iter: 0,
+                max_iters: max_iters,
+            },
+            lists:       lists,
+            nlists:      nlists,
+            single_list: single_list
+        }
+    }
+
+    /// Sets the internal index counter's values to a specific state, which you will
+    /// typically obtain when using the `get_index()` method. The `iter_no` parameter
+    /// will specify what the iteration's position should be. If, for example, you set
+    /// this value to `0`, then it will iterate through all possible permutations,
+    /// including looping around back to the beginning and generating permutations
+    /// for all possible values before the supplied state.
+    ///
+    /// # Panics
+    /// This method will panic if the supplied indexes vector is not the correct length
+    pub fn set_index(&mut self, iter_no: usize, indexes: Vec<usize>) {
+        debug_assert!(indexes.len() == self.indexes.max.len(), "indexes have an invalid length");
+        self.indexes.indexes = indexes;
+        self.indexes.curr_iter = iter_no;
+    }
+
+    /// Obtains the current iteration number and the index counter's indexes.
+    pub fn get_index(&self) -> (usize, Vec<usize>) {
+        (self.indexes.curr_iter, self.indexes.indexes.clone())
+    }
+
+    /// Resets the internal state of the `Permutator` to allow you to start permutating again.
+    pub fn reset(&mut self) {
+        self.indexes.reset();
+        self.indexes.curr_iter = 0;
+    }
+
+    /// Provides similar functionality as the `Iterator` traits `next` method, but allows the ability to either
+    /// supply your own buffer or re-use the `Vec` created by a prior `next` in order to avoid extra allocations.
+    ///
+    /// - If the method returns `true`, then there are more values to compute.
+    /// - If the method returns `false`, then all values have been exhausted.
+    ///
+    /// # Panics
+    /// This method will panic if the supplied buffer's length is invalid.
+    pub fn next_with_buffer(&mut self, buffer: &mut [T]) -> bool {
+        if self.indexes.max_iters != 0 {
+            if self.indexes.curr_iter == self.indexes.max_iters {
+                return false
+            }
+        }
+        debug_assert!(buffer.len() >= self.nlists, "buffer is not large enough to contain the permutation");
+
+        self.indexes.curr_iter += 1;
+
+        let mut index = 0;
+        unsafe {
+            if self.single_list {
+                for value in self.indexes.indexes.iter().map(|v| *self.lists.get_unchecked(0).get_unchecked(*v)) {
+                    *buffer.get_unchecked_mut(index) = value;
+                    index += 1;
+                }
+            } else {
+                for value in self.indexes.indexes.iter().enumerate()
+                    .map(|(list, value)| *self.lists.get_unchecked(list).get_unchecked(*value))
+                {
+                    *buffer.get_unchecked_mut(index) = value;
+                    index += 1;
+                }
+            };
+        }
+
+        self.indexes.increment(&self.nlists - 1);
+
+        true
+    }
+}
+
+impl<'a, T: Copy> Iterator for ValuePermutator<'a, T> {
+    type Item = Vec<T>;
+
+    fn nth(&mut self, mut n: usize) -> Option<Vec<T>> {
+        loop {
+            if self.indexes.max_iters != 0 {
+                if self.indexes.curr_iter == self.indexes.max_iters {
+                    return None
+                }
+            }
+
+            self.indexes.curr_iter += 1;
+
+            if n == 0 {
+                let output = if self.single_list {
+                    self.indexes.indexes.iter()
+                        .map(|value| unsafe {
+                            *self.lists.get_unchecked(0).get_unchecked(*value)
+                        })
+                        .collect::<Vec<T>>()
+                } else {
+                    self.indexes.indexes.iter().enumerate()
+                        .map(|(list, value)| unsafe {
+                            *self.lists.get_unchecked(list).get_unchecked(*value)
+                        })
+                        .collect::<Vec<T>>()
+                };
+
+                self.indexes.increment(&self.nlists - 1);
+                return Some(output)
+            }
+
+            self.indexes.increment(&self.nlists - 1);
+            n -= 1;
+        }
+    }
+
+    fn next(&mut self) -> Option<Vec<T>> {
+        // Without this check, the permutator would cycle forever and never return `None`
+        // because my incrementing algorithim prohibits it.
+        if self.indexes.max_iters != 0 {
+            if self.indexes.curr_iter == self.indexes.max_iters {
+                return None
+            }
+        }
+
+        self.indexes.curr_iter += 1;
+
+        // Generates the next permutation sequence using the current indexes.
+        // We are using `get_unchecked()` here because the incrementing
+        // algorithim prohibits values from being out of bounds.
+        let output = if self.single_list {
+            self.indexes.indexes.iter()
+                .map(|value| unsafe {
+                    *self.lists.get_unchecked(0).get_unchecked(*value)
+                })
+                .collect::<Vec<T>>()
+        } else {
+            self.indexes.indexes.iter().enumerate()
+                .map(|(list, value)| unsafe {
+                    *self.lists.get_unchecked(list).get_unchecked(*value)
+                })
+                .collect::<Vec<T>>()
         };
 
         // Increment the indexes to point towards the next set of values.

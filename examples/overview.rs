@@ -1,5 +1,5 @@
 extern crate permutate;
-use permutate::{Permutator, OneSized};
+use permutate::{OneSized, Permutator};
 
 fn main() {
     println!("examples and use-cases:\n");
@@ -14,20 +14,10 @@ fn main() {
         &["_"][..],
     ];
     //
-    let single_tuple: &(&[&str],) = &(
-        &["A", "B", "C"],
-    );
-    let double_tuple: &(&[&str], &[&i32]) = &(
-        &["A", "B", "C"],
-        &[&0, &1, &2],
-    );
-    let triple_tuple: &(&[&str], &[&i32], &[&bool]) = &(
-        &["A", "B"],
-        &[&0, &1, &2],
-        &[&false, &true]
-    );
-
-
+    let single_tuple: &(&[&str],) = &(&["A", "B", "C"],);
+    let double_tuple: &(&[&str], &[&i32]) = &(&["A", "B", "C"], &[&0, &1, &2]);
+    let triple_tuple: &(&[&str], &[&i32], &[&bool]) =
+        &(&["A", "B"], &[&0, &1, &2], &[&false, &true]);
 
     println!("\nfixed 1-sized wrapper of a str list");
     {

@@ -157,7 +157,6 @@ macro_rules! tuple_impls {
     // additional reference: https://danielkeep.github.io/tlborm/book/pat-internal-rules.html
 }
 
-
 tuple_impls! {
     Tuple1 {
         (0) -> A

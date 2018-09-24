@@ -18,7 +18,7 @@ where
 #[derive(Clone, Debug)]
 pub struct Permutator<'a, ListWrap, Item>
 where
-    ListWrap: ListWrapper<'a, Item> + ?Sized,
+    ListWrap: ListWrapper<'a, Item> + 'a + ?Sized,
     Item: 'a + ?Sized,
 {
     indexes: IndexCounters,

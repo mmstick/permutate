@@ -41,11 +41,6 @@ where
 
         let mut index = 0;
         unsafe {
-            for outer_value in indexes.iter().map(|value| *self[0].get_unchecked(*value)) {
-                *buffer.get_unchecked_mut(index) = outer_value;
-                index += 1;
-            }
-
             for outer_value in indexes
                 .iter()
                 .enumerate()

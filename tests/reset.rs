@@ -1,7 +1,7 @@
 extern crate permutate;
 use permutate::{Permutator, Repeated};
 
-fn get_inputs<'a>() -> [&'a [&'a str]; 1] {
+fn get_input<'a>() -> [&'a [&'a str]; 1] {
     [&["1", "2", "3"][..]]
 }
 
@@ -39,7 +39,7 @@ fn get_expected<'a>() -> [&'a [&'a str]; 27] {
 
 #[test]
 fn test_reset() {
-    let input = get_inputs();
+    let input = get_input();
     let expected = get_expected();
     let mut permutator = Permutator::<Repeated<_>, _>::new(&input);
     for (output, expected) in permutator.by_ref().zip(expected[..].iter()) {

@@ -80,7 +80,6 @@ fn test_permutation_values_with_buffer() {
     assert!(expected_iterator.next().is_none());
 }
 
-
 fn get_input_b<'a>() -> [&'a [&'a str]; 4] {
     [
         &["0", "1"][..],

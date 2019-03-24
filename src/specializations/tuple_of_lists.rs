@@ -1,52 +1,5 @@
 use ListWrapper;
 
-// single tuple (for reference)
-// impl<'a, A> ListWrapper<'a, (&'a A)> for (&'a [&'a A],)
-// where
-//     A: 'a + ?Sized,
-//     &'a Self: Sized,
-// {
-//     fn wrapper_len(&'a self) -> usize {
-//         1
-//     }
-//     fn lens(&self) -> Vec<usize> {
-//         debug_assert!(self.len() != 0);
-//         vec![self.len()]
-//     }
-//     fn next_item(&'a self, indexes: &Vec<usize>) -> (&'a A) {
-//         unsafe {
-//             (
-//                 *self.get_unchecked(indexes[0])
-//             )
-//         }
-//     }
-// }
-
-// double tuples (for reference)
-// impl<'a, A, B> ListWrapper<'a, (&'a A, &'a B)> for (&'a [&'a A], &'a [&'a B])
-// where
-//     A: 'a + ?Sized,
-//     B: 'a + ?Sized,
-//     &'a Self: Sized,
-// {
-//     fn wrapper_len(&'a self) -> usize {
-//         2
-//     }
-//     fn lens(&self) -> Vec<usize> {
-//         let ls = vec![self.0.len(), self.1.len()];
-//         ls.iter().for_each(|l| debug_assert!(*l != 0));
-//         ls
-//     }
-//     fn next_item(&'a self, indexes: &Vec<usize>) -> (&'a A, &'a B) {
-//         unsafe {
-//             (
-//                 *self.0.get_unchecked(indexes[0]),
-//                 *self.1.get_unchecked(indexes[1])
-//             )
-//         }
-//     }
-// }
-
 // reference: https://doc.rust-lang.org/src/core/tuple.rs.html
 macro_rules! tuple_impls {
     ($(
@@ -55,12 +8,12 @@ macro_rules! tuple_impls {
         }
     )+) => {
         $(
-            impl<'a, $($T),+> ListWrapper<'a, ($(&'a $T,)+)> for ($(&'a [&'a $T],)+)
+            impl<'a, $($T),+> ListWrapper<($($T,)+)> for ($(&'a [$T],)+)
             where
-                $($T: 'a + ?Sized,)+
-                &'a Self: Sized,
+                $($T: ?Sized + Copy,)+
+                // &'a Self: Sized,
             {
-                fn wrapper_len(&'a self) -> usize {
+                fn wrapper_len(&self) -> usize {
                     tuple_impls!(@last_idx $($idx,)+) + 1
                 }
                 fn lens(&self) -> Vec<usize> {
@@ -68,7 +21,7 @@ macro_rules! tuple_impls {
                     ls.iter().for_each(|l| debug_assert!(*l != 0));
                     ls
                 }
-                fn next_item(&'a self, indexes: &Vec<usize>) -> ($(&'a $T,)+) {
+                fn next_item(&self, indexes: &Vec<usize>) -> ($($T,)+) {
                     unsafe {
                         (
                             $(*self.$idx.get_unchecked(indexes[$idx]),)+
@@ -78,9 +31,9 @@ macro_rules! tuple_impls {
 
 
                 fn next_with_buffer(
-                    &'a self,
+                    &self,
                     indexes: &Vec<usize>,
-                    buffer: &mut ($(&'a $T,)+),
+                    buffer: &mut ($($T,)+),
                     _nlists: usize,
                 ) -> () {
                     // `nlists` verification is unnecessary because it's verified
@@ -88,7 +41,7 @@ macro_rules! tuple_impls {
 
                     unsafe {
                         $(
-                            buffer.$idx = self.$idx.get_unchecked(indexes[$idx]);
+                            buffer.$idx = *self.$idx.get_unchecked(indexes[$idx]);
                         )+
                     }
                 }

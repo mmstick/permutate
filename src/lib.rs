@@ -5,34 +5,32 @@ mod specializations;
 pub use specializations::Repeated;
 
 /// Abstract the outermost wrapper behaviour
-pub trait ListWrapper<'a, Item>
+pub trait ListWrapper<ItemWrap>
 where
-    Item: 'a + ?Sized,
+    ItemWrap: ?Sized,
 {
-    fn wrapper_len(&'a self) -> usize;
-    fn lens(&'a self) -> Vec<usize>;
-    fn next_item(&'a self, indexes: &Vec<usize>) -> Item;
-    fn next_with_buffer(&'a self, indexes: &Vec<usize>, buffer: &mut Item, nlists: usize) -> ();
+    fn wrapper_len(&self) -> usize;
+    fn lens(&self) -> Vec<usize>;
+    fn next_item(&self, indexes: &Vec<usize>) -> ItemWrap;
+    fn next_with_buffer(&self, indexes: &Vec<usize>, buffer: &mut ItemWrap, nlists: usize) -> ();
 }
 
 #[derive(Clone, Debug)]
-pub struct Permutator<'a, ListWrap, Item>
+pub struct Permutator<ListWrap, ItemWrap>
 where
-    ListWrap: ListWrapper<'a, Item> + 'a + ?Sized,
-    Item: 'a + ?Sized,
+    ListWrap: ListWrapper<ItemWrap>,
 {
     indexes: IndexCounters,
-    lists: &'a ListWrap,
+    lists: ListWrap,
     nlists: usize,
-    _list_item: PhantomData<Item>,
+    _list_item_wrapper: PhantomData<ItemWrap>,
 }
 
-impl<'a, ListWrap, Item> Permutator<'a, ListWrap, Item>
+impl<ListWrap, ItemWrap> Permutator<ListWrap, ItemWrap>
 where
-    ListWrap: ListWrapper<'a, Item> + 'a + ?Sized,
-    Item: 'a + ?Sized,
+    ListWrap: ListWrapper<ItemWrap> + ?Sized + Clone,
 {
-    pub fn new(lists: &'a ListWrap) -> Permutator<'a, ListWrap, Item> {
+    pub fn new(lists: &ListWrap) -> Permutator<ListWrap, ItemWrap> {
         let nlists = lists.wrapper_len();
         let nvalues = lists.lens();
         let max_iters = nvalues.iter().product();
@@ -44,9 +42,9 @@ where
                 curr_iter: 0,
                 max_iters: max_iters,
             },
-            lists: lists,
+            lists: lists.clone(),
             nlists: nlists,
-            _list_item: PhantomData,
+            _list_item_wrapper: PhantomData,
         }
     }
 
@@ -75,7 +73,7 @@ where
         self.indexes.curr_iter = 0;
     }
 
-    pub fn next_with_buffer<'b>(&mut self, buffer: &'b mut Item) -> Option<&'b mut Item> {
+    pub fn next_with_buffer<'b>(&mut self, buffer: &'b mut ItemWrap) -> Option<&'b mut ItemWrap> {
         if self.indexes.max_iters != 0 && self.indexes.curr_iter == self.indexes.max_iters {
             return None;
         }
@@ -88,12 +86,11 @@ where
     }
 }
 
-impl<'a, ListWrap, NextItem> Iterator for Permutator<'a, ListWrap, NextItem>
+impl<ListWrap, ItemWrap> Iterator for Permutator<ListWrap, ItemWrap>
 where
-    ListWrap: ListWrapper<'a, NextItem> + 'a + ?Sized,
-    NextItem: 'a + Sized,
+    ListWrap: ListWrapper<ItemWrap>,
 {
-    type Item = NextItem;
+    type Item = ItemWrap;
 
     fn nth(&mut self, mut n: usize) -> Option<Self::Item> {
         loop {
@@ -107,7 +104,7 @@ where
                 self.indexes.increment(&self.nlists - 1);
                 n -= 1;
             } else {
-                let output = ListWrap::next_item(self.lists, &self.indexes.indexes);
+                let output = ListWrap::next_item(&self.lists, &self.indexes.indexes);
                 self.indexes.increment(&self.nlists - 1);
                 return Some(output);
             }
@@ -120,7 +117,7 @@ where
         }
 
         self.indexes.curr_iter += 1;
-        let output = ListWrap::next_item(self.lists, &self.indexes.indexes);
+        let output = ListWrap::next_item(&self.lists, &self.indexes.indexes);
 
         // Increment the indexes to point towards the next set of values.
         self.indexes.increment(self.nlists - 1);

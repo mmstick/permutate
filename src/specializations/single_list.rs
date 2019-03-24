@@ -1,6 +1,6 @@
 use ListWrapper;
 
-type OneSized<'a, T> = [&'a [&'a T]; 1];
+type OneSized<'a, T> = [&'a [T]; 1];
 
 /// Indicates that the permutator will repeated the input and read it as a
 /// square-sized matrix.
@@ -17,7 +17,7 @@ type OneSized<'a, T> = [&'a [&'a T]; 1];
 /// // will have the same output as the permutator `pm`,
 /// // which does not indicates the `Repeated` type:
 /// let m = [&["1", "2", "3"][..], &["1", "2", "3"][..], &["1", "2", "3"][..]];
-/// let pm = Permutator::<_, _>::new(&m[..]);
+/// let pm = Permutator::<_, _>::new(&m.to_vec());
 ///
 /// // and such output is:
 /// let output = [
@@ -50,9 +50,9 @@ type OneSized<'a, T> = [&'a [&'a T]; 1];
 pub type Repeated<'a, T> = OneSized<'a, T>;
 
 // implementation for when it's a single list
-impl<'a, T> ListWrapper<'a, Vec<&'a T>> for OneSized<'a, T>
+impl<'a, T> ListWrapper<Vec<T>> for OneSized<'a, T>
 where
-    T: 'a + ?Sized,
+    T: ?Sized + Copy,
 {
     fn wrapper_len(&self) -> usize {
         let len = self[0].len();
@@ -64,18 +64,13 @@ where
         debug_assert!(nlists != 0);
         (0..nlists).map(|_| nlists).collect::<Vec<usize>>()
     }
-    fn next_item(&'a self, indexes: &Vec<usize>) -> Vec<&'a T> {
+    fn next_item(&self, indexes: &Vec<usize>) -> Vec<T> {
         indexes
             .iter()
             .map(|value| unsafe { *self[0].get_unchecked(*value) })
-            .collect::<Vec<&T>>()
+            .collect::<Vec<T>>()
     }
-    fn next_with_buffer(
-        &'a self,
-        indexes: &Vec<usize>,
-        buffer: &mut Vec<&'a T>,
-        nlists: usize,
-    ) -> () {
+    fn next_with_buffer(&self, indexes: &Vec<usize>, buffer: &mut Vec<T>, nlists: usize) -> () {
         debug_assert!(
             buffer.len() >= nlists,
             "buffer ({}) is not large enough to contain the permutation ({})",

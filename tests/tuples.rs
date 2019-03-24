@@ -14,6 +14,10 @@ fn test_tuple_a() {
     let expected = get_expected_a();
     for (output, expected) in Permutator::new(&input).zip(expected[..].iter()) {
         assert_eq!(&output, *expected);
+
+        // also assert that for each value pair, both point to the same address
+        let (o, e) = (output.0, expected.0);
+        assert_eq!(o as *const str, e as *const str);
     }
 }
 
@@ -26,10 +30,20 @@ fn test_tuple_a_with_buffer() {
     let mut expected_iterator = expected[..].iter();
 
     if let Some(mut permutation) = permutator.next() {
-        assert_eq!(&&permutation, expected_iterator.next().unwrap());
+        let expected_permutation = expected_iterator.next().unwrap();
+        assert_eq!(&&permutation, expected_permutation);
+
+        // also assert that for each value pair, both point to the same address
+        let (o, e) = (permutation.0, expected_permutation.0);
+        assert_eq!(o as *const str, e as *const str);
 
         while let Some(permutation) = permutator.next_with_buffer(&mut permutation) {
-            assert_eq!(&permutation, expected_iterator.next().unwrap());
+            let expected_permutation = expected_iterator.next().unwrap();
+            assert_eq!(&permutation, expected_permutation);
+
+            // also assert that for each value pair, both point to the same address
+            let (o, e) = (permutation.0, expected_permutation.0);
+            assert_eq!(o as *const str, e as *const str);
         }
     }
 
@@ -60,6 +74,12 @@ fn test_tuple_b() {
     let expected = get_expected_b();
     for (output, expected) in Permutator::new(&input).zip(expected[..].iter()) {
         assert_eq!(&output, *expected);
+
+        // also assert that for each value pair, both point to the same address
+        let (o, e) = (output.0, expected.0);
+        assert_eq!(o as *const str, e as *const str);
+        let (o, e) = (output.1, expected.1);
+        assert_eq!(o as *const i32, e as *const i32);
     }
 }
 
@@ -72,10 +92,24 @@ fn test_tuple_b_with_buffer() {
     let mut expected_iterator = expected[..].iter();
 
     if let Some(mut permutation) = permutator.next() {
-        assert_eq!(&&permutation, expected_iterator.next().unwrap());
+        let expected_permutation = expected_iterator.next().unwrap();
+        assert_eq!(&&permutation, expected_permutation);
+
+        // also assert that for each value pair, both point to the same address
+        let (o, e) = (permutation.0, expected_permutation.0);
+        assert_eq!(o as *const str, e as *const str);
+        let (o, e) = (permutation.1, expected_permutation.1);
+        assert_eq!(o as *const i32, e as *const i32);
 
         while let Some(permutation) = permutator.next_with_buffer(&mut permutation) {
-            assert_eq!(&permutation, expected_iterator.next().unwrap());
+            let expected_permutation = expected_iterator.next().unwrap();
+            assert_eq!(&permutation, expected_permutation);
+
+            // also assert that for each value pair, both point to the same address
+            let (o, e) = (permutation.0, expected_permutation.0);
+            assert_eq!(o as *const str, e as *const str);
+            let (o, e) = (permutation.1, expected_permutation.1);
+            assert_eq!(o as *const i32, e as *const i32);
         }
     }
 
@@ -109,6 +143,14 @@ fn test_tuple_c() {
     let expected = get_expected_c();
     for (output, expected) in Permutator::new(&input).zip(expected[..].iter()) {
         assert_eq!(&output, *expected);
+
+        // also assert that for each value pair, both point to the same address
+        let (o, e) = (output.0, expected.0);
+        assert_eq!(o as *const str, e as *const str);
+        let (o, e) = (output.1, expected.1);
+        assert_eq!(o as *const i32, e as *const i32);
+        let (o, e) = (output.2, expected.2);
+        assert_eq!(o as *const bool, e as *const bool);
     }
 }
 
@@ -121,10 +163,87 @@ fn test_tuple_c_with_buffer() {
     let mut expected_iterator = expected[..].iter();
 
     if let Some(mut permutation) = permutator.next() {
-        assert_eq!(&&permutation, expected_iterator.next().unwrap());
+        let expected_permutation = expected_iterator.next().unwrap();
+        assert_eq!(&&permutation, expected_permutation);
+
+        // also assert that for each value pair, both point to the same address
+        let (o, e) = (permutation.0, expected_permutation.0);
+        assert_eq!(o as *const str, e as *const str);
+        let (o, e) = (permutation.1, expected_permutation.1);
+        assert_eq!(o as *const i32, e as *const i32);
+        let (o, e) = (permutation.2, expected_permutation.2);
+        assert_eq!(o as *const bool, e as *const bool);
 
         while let Some(permutation) = permutator.next_with_buffer(&mut permutation) {
-            assert_eq!(&permutation, expected_iterator.next().unwrap());
+            let expected_permutation = expected_iterator.next().unwrap();
+            assert_eq!(&permutation, expected_permutation);
+
+            // also assert that for each value pair, both point to the same address
+            let (o, e) = (permutation.0, expected_permutation.0);
+            assert_eq!(o as *const str, e as *const str);
+            let (o, e) = (permutation.1, expected_permutation.1);
+            assert_eq!(o as *const i32, e as *const i32);
+            let (o, e) = (permutation.2, expected_permutation.2);
+            assert_eq!(o as *const bool, e as *const bool);
+        }
+    }
+
+    // verifies that the expected iterator has been fully consumed
+    assert!(expected_iterator.next().is_none())
+}
+
+fn get_input_d<'a>() -> &'a (&'a [&'a str], &'a [i32]) {
+    &(&["A", "B"], &[0, 1])
+}
+fn get_expected_d<'a>() -> [&'a (&'a str, i32); 4] {
+    [&("A", 0), &("A", 1), &("B", 0), &("B", 1)]
+}
+
+#[test]
+fn test_tuple_d() {
+    let input = get_input_d().clone();
+    let expected = get_expected_d();
+    for (output, expected) in Permutator::new(&input).zip(expected[..].iter()) {
+        assert_eq!(&output, *expected);
+
+        // also assert that for the first value pair, both point to the same address
+        let (o, e) = (output.0, expected.0);
+        assert_eq!(o as *const str, e as *const str);
+        // and assert that for the second value pair, they have different addresses
+        let (o, e) = (output.1, expected.1);
+        assert!(&o as *const i32 != &e as *const i32);
+    }
+}
+
+#[test]
+fn test_tuple_d_with_buffer() {
+    let input = get_input_d().clone();
+    let expected = get_expected_d();
+
+    let mut permutator = Permutator::new(&input);
+    let mut expected_iterator = expected[..].iter();
+
+    if let Some(mut permutation) = permutator.next() {
+        let expected_permutation = expected_iterator.next().unwrap();
+        assert_eq!(&&permutation, expected_permutation);
+
+        // also assert that for the first value pair, both point to the same address
+        let (o, e) = (permutation.0, expected_permutation.0);
+        assert_eq!(o as *const str, e as *const str);
+        // and assert that for the second value pair, they have different addresses
+        let (o, e) = (permutation.1, expected_permutation.1);
+        assert!(&o as *const i32 != &e as *const i32);
+
+        while let Some(permutation) = permutator.next_with_buffer(&mut permutation) {
+            let expected_permutation = expected_iterator.next().unwrap();
+            assert_eq!(&permutation, expected_permutation);
+
+            // also assert that for the first value pair, both point to the same address
+            let (o, e) = (permutation.0, expected_permutation.0);
+            assert_eq!(o as *const str, e as *const str);
+            // and assert that for the second value pair, they have different addresses
+            let (o, e) = (permutation.1, expected_permutation.1);
+            assert!(&o as *const i32 != &e as *const i32)
         }
     }
 

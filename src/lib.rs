@@ -2,8 +2,7 @@ use std::marker::PhantomData;
 
 mod specializations;
 
-/// may be used as type annotation to indicate specialization
-pub use specializations::OneSized;
+pub use specializations::Repeated;
 
 /// Abstract the outermost wrapper behaviour
 pub trait ListWrapper<'a, Item>
@@ -13,6 +12,7 @@ where
     fn wrapper_len(&'a self) -> usize;
     fn lens(&'a self) -> Vec<usize>;
     fn next_item(&'a self, indexes: &Vec<usize>) -> Item;
+    fn next_with_buffer(&'a self, indexes: &Vec<usize>, buffer: &mut Item, nlists: usize) -> ();
 }
 
 #[derive(Clone, Debug)]
@@ -74,6 +74,18 @@ where
         self.indexes.reset();
         self.indexes.curr_iter = 0;
     }
+
+    pub fn next_with_buffer<'b>(&mut self, buffer: &'b mut Item) -> Option<&'b mut Item> {
+        if self.indexes.max_iters != 0 && self.indexes.curr_iter == self.indexes.max_iters {
+            return None;
+        }
+
+        self.indexes.curr_iter += 1;
+        let self_lists: &mut _ = &mut self.lists;
+        ListWrap::next_with_buffer(self_lists, &self.indexes.indexes, buffer, self.nlists);
+        self.indexes.increment(&self.nlists - 1);
+        Some(buffer)
+    }
 }
 
 impl<'a, ListWrap, NextItem> Iterator for Permutator<'a, ListWrap, NextItem>
@@ -84,14 +96,12 @@ where
     type Item = NextItem;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.indexes.max_iters != 0 {
-            if self.indexes.curr_iter == self.indexes.max_iters {
-                return None;
-            }
+        if self.indexes.max_iters != 0 && self.indexes.curr_iter == self.indexes.max_iters {
+            return None;
         }
 
         self.indexes.curr_iter += 1;
-        let output = ListWrapper::next_item(self.lists, &self.indexes.indexes);
+        let output = ListWrap::next_item(self.lists, &self.indexes.indexes);
 
         // Increment the indexes to point towards the next set of values.
         self.indexes.increment(self.nlists - 1);

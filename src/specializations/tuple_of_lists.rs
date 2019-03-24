@@ -55,7 +55,7 @@ macro_rules! tuple_impls {
         }
     )+) => {
         $(
-            impl<'a, $($T),+> ListWrapper<'a, ($(&'a $T),+)> for ($(&'a [&'a $T],)+)
+            impl<'a, $($T),+> ListWrapper<'a, ($(&'a $T,)+)> for ($(&'a [&'a $T],)+)
             where
                 $($T: 'a + ?Sized,)+
                 &'a Self: Sized,
@@ -68,11 +68,28 @@ macro_rules! tuple_impls {
                     ls.iter().for_each(|l| debug_assert!(*l != 0));
                     ls
                 }
-                fn next_item(&'a self, indexes: &Vec<usize>) -> ($(&'a $T),+) {
+                fn next_item(&'a self, indexes: &Vec<usize>) -> ($(&'a $T,)+) {
                     unsafe {
                         (
-                            $(*self.$idx.get_unchecked(indexes[$idx])),+
+                            $(*self.$idx.get_unchecked(indexes[$idx]),)+
                         )
+                    }
+                }
+
+
+                fn next_with_buffer(
+                    &'a self,
+                    indexes: &Vec<usize>,
+                    buffer: &mut ($(&'a $T,)+),
+                    _nlists: usize,
+                ) -> () {
+                    // `nlists` verification is unnecessary because it's verified
+                    // at compile-time
+
+                    unsafe {
+                        $(
+                            buffer.$idx = self.$idx.get_unchecked(indexes[$idx]);
+                        )+
                     }
                 }
             }

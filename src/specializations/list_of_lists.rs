@@ -27,6 +27,35 @@ where
             .map(|(list, value)| unsafe { *self.get_unchecked(list).get_unchecked(*value) })
             .collect::<Vec<&T>>()
     }
+
+    fn next_with_buffer(
+        &'a self,
+        indexes: &Vec<usize>,
+        buffer: &mut Vec<&'a T>,
+        nlists: usize,
+    ) -> () {
+        debug_assert!(
+            buffer.len() >= nlists,
+            "buffer is not large enough to contain the permutation"
+        );
+
+        let mut index = 0;
+        unsafe {
+            for outer_value in indexes.iter().map(|value| *self[0].get_unchecked(*value)) {
+                *buffer.get_unchecked_mut(index) = outer_value;
+                index += 1;
+            }
+
+            for outer_value in indexes
+                .iter()
+                .enumerate()
+                .map(|(list, value)| *self.get_unchecked(list).get_unchecked(*value))
+            {
+                *buffer.get_unchecked_mut(index) = outer_value;
+                index += 1;
+            }
+        };
+    }
 }
 
 // list_of_lists, but with option (WIP)

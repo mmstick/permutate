@@ -3,4 +3,4 @@ mod single_list;
 mod tuple_of_lists;
 
 // re-export
-pub use self::single_list::OneSized;
+pub use self::single_list::Repeated;

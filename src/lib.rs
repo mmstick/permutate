@@ -12,7 +12,7 @@ where
     fn wrapper_len(&self) -> usize;
     fn lens(&self) -> Vec<usize>;
     fn next_item(&self, indexes: &Vec<usize>) -> ItemWrap;
-    fn next_with_buffer(&self, indexes: &Vec<usize>, buffer: &mut ItemWrap, nlists: usize) -> ();
+    fn next_with_buffer(&self, indexes: &Vec<usize>, buffer: &mut ItemWrap) -> ();
 }
 
 #[derive(Clone, Debug)]
@@ -80,7 +80,7 @@ where
 
         self.indexes.curr_iter += 1;
         let self_lists: &mut _ = &mut self.lists;
-        ListWrap::next_with_buffer(self_lists, &self.indexes.indexes, buffer, self.nlists);
+        ListWrap::next_with_buffer(self_lists, &self.indexes.indexes, buffer);
         self.indexes.increment(&self.nlists - 1);
         Some(buffer)
     }

@@ -34,7 +34,6 @@ macro_rules! tuple_impls {
                     &self,
                     indexes: &Vec<usize>,
                     buffer: &mut ($($T,)+),
-                    _nlists: usize,
                 ) -> () {
                     // `nlists` verification is unnecessary because it's verified
                     // at compile-time

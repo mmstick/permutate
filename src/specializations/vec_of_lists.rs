@@ -27,9 +27,9 @@ where
             .collect::<Vec<T>>()
     }
 
-    fn next_with_buffer(&self, indexes: &Vec<usize>, buffer: &mut Vec<T>, nlists: usize) -> () {
+    fn next_with_buffer(&self, indexes: &Vec<usize>, buffer: &mut Vec<T>) -> () {
         debug_assert!(
-            buffer.len() >= nlists,
+            buffer.len() >= self.wrapper_len(),
             "buffer is not large enough to contain the permutation"
         );
 

@@ -95,6 +95,25 @@ where
 {
     type Item = NextItem;
 
+    fn nth(&mut self, mut n: usize) -> Option<Self::Item> {
+        loop {
+            if self.indexes.max_iters != 0 && self.indexes.curr_iter == self.indexes.max_iters {
+                return None;
+            }
+
+            self.indexes.curr_iter += 1;
+
+            if let _should_skip @ true = n != 0 {
+                self.indexes.increment(&self.nlists - 1);
+                n -= 1;
+            } else {
+                let output = ListWrap::next_item(self.lists, &self.indexes.indexes);
+                self.indexes.increment(&self.nlists - 1);
+                return Some(output);
+            }
+        }
+    }
+
     fn next(&mut self) -> Option<Self::Item> {
         if self.indexes.max_iters != 0 && self.indexes.curr_iter == self.indexes.max_iters {
             return None;

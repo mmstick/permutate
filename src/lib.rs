@@ -22,7 +22,6 @@ where
 {
     indexes: IndexCounters,
     lists: ListWrap,
-    nlists: usize,
     _list_item_wrapper: PhantomData<ItemWrap>,
 }
 
@@ -43,7 +42,6 @@ where
                 max_iters: max_iters,
             },
             lists: lists.clone(),
-            nlists: nlists,
             _list_item_wrapper: PhantomData,
         }
     }
@@ -81,7 +79,7 @@ where
         self.indexes.curr_iter += 1;
         let self_lists: &mut _ = &mut self.lists;
         ListWrap::next_with_buffer(self_lists, &self.indexes.indexes, buffer);
-        self.indexes.increment(&self.nlists - 1);
+        self.indexes.increment(self_lists.wrapper_len() - 1);
         Some(buffer)
     }
 }
@@ -101,11 +99,11 @@ where
             self.indexes.curr_iter += 1;
 
             if let _should_skip @ true = n != 0 {
-                self.indexes.increment(&self.nlists - 1);
+                self.indexes.increment(&self.lists.wrapper_len() - 1);
                 n -= 1;
             } else {
                 let output = ListWrap::next_item(&self.lists, &self.indexes.indexes);
-                self.indexes.increment(&self.nlists - 1);
+                self.indexes.increment(&self.lists.wrapper_len() - 1);
                 return Some(output);
             }
         }
@@ -120,7 +118,7 @@ where
         let output = ListWrap::next_item(&self.lists, &self.indexes.indexes);
 
         // Increment the indexes to point towards the next set of values.
-        self.indexes.increment(self.nlists - 1);
+        self.indexes.increment(self.lists.wrapper_len() - 1);
 
         // Return the collected permutation
         Some(output)

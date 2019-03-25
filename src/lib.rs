@@ -154,11 +154,15 @@
 //! }
 //! ```
 
+#![forbid(missing_docs)]
+
 use std::marker::PhantomData;
 
-mod specializations;
+mod index_counters;
+mod list_wrapper;
 
-pub use specializations::Repeated;
+use index_counters::IndexCounters;
+pub use list_wrapper::{ListWrapper, Repeated};
 
 /// The `PermutatorWrapper` contains the methods (creation, etc) which any Permutator should
 /// implement.
@@ -216,19 +220,9 @@ where
     indexes: IndexCounters,
     /// The internal data that the permutator is permutating against.
     lists: ListWrap,
+    /// Phantom type, so that when implementing the `Iterator` for this structure,
+    /// `ItemWrap` type may be used as `Iterator::Item`.
     _list_item_wrapper: PhantomData<ItemWrap>,
-}
-
-/// Abstract the outermost wrapper behaviour
-pub trait ListWrapper<ItemWrap>
-where
-    ItemWrap: ?Sized,
-{
-    /// The total number of lists that is being permutated with.
-    fn wrapper_len(&self) -> usize;
-    fn lens(&self) -> Vec<usize>;
-    fn next_item(&self, indexes: &Vec<usize>) -> ItemWrap;
-    fn next_with_buffer(&self, indexes: &Vec<usize>, buffer: &mut ItemWrap) -> ();
 }
 
 impl<ListWrap, ItemWrap> PermutatorWrapper<ListWrap, ItemWrap> for Permutator<ListWrap, ItemWrap>
@@ -331,51 +325,5 @@ where
 
         // Return the collected permutation
         Some(output)
-    }
-}
-
-#[derive(Clone, Debug)]
-/// Tracks the state of the indexes of each list.
-pub struct IndexCounters {
-    /// The current state of the indexes
-    indexes: Vec<usize>,
-    /// The lengths of the wrapped lists
-    lens: Vec<usize>,
-    /// The current iteration position
-    curr_iter: usize,
-    /// The maximum number of iterations to perform
-    max_iters: usize,
-}
-
-impl IndexCounters {
-    /// Increments & resets index indexes according to their maximum values.
-    fn increment(&mut self, mut nlists: usize) {
-        loop {
-            let mut increment = false;
-            {
-                let current = unsafe { self.indexes.get_unchecked_mut(nlists) };
-                let max = unsafe { self.lens.get_unchecked(nlists) };
-                if *current + 1 >= *max {
-                    if nlists != 0 {
-                        *current = 0;
-                        increment = true;
-                    }
-                } else {
-                    *current += 1;
-                }
-            }
-
-            if increment {
-                nlists -= 1;
-            } else {
-                break;
-            }
-        }
-    }
-
-    fn reset(&mut self) {
-        for value in self.indexes.iter_mut() {
-            *value = 0;
-        }
     }
 }

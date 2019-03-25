@@ -9,6 +9,10 @@ documentation = "https://docs.rs/permutate/0.1.0/permutate/"
 keywords = ["permutate", "permutator"]
 readme = "README.md"
 
+[[bin]]
+name = "permutate"
+doc = false
+
 [profile.release]
 lto = true
 opt-level = 3

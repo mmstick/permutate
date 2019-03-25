@@ -22,6 +22,8 @@ macro_rules! tuple_impls {
                     ls
                 }
                 fn next_item(&self, indexes: &Vec<usize>) -> ($($T,)+) {
+                    // We are using `get_unchecked()` here because the incrementing
+                    // algorithim prohibits values from being out of bounds.
                     unsafe {
                         (
                             $(*self.$idx.get_unchecked(indexes[$idx]),)+
@@ -38,6 +40,8 @@ macro_rules! tuple_impls {
                     // `nlists` verification is unnecessary because it's verified
                     // at compile-time
 
+                    // We are using `get_unchecked()` here because the incrementing
+                    // algorithim prohibits values from being out of bounds.
                     unsafe {
                         $(
                             buffer.$idx = *self.$idx.get_unchecked(indexes[$idx]);

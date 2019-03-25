@@ -20,6 +20,8 @@ where
             .collect::<Vec<usize>>()
     }
     fn next_item(&self, indexes: &Vec<usize>) -> Vec<T> {
+        // We are using `get_unchecked()` here because the incrementing
+        // algorithim prohibits values from being out of bounds.
         indexes
             .iter()
             .enumerate()
@@ -34,6 +36,8 @@ where
         );
 
         let mut index = 0;
+        // We are using `get_unchecked()` here because the incrementing
+        // algorithim prohibits values from being out of bounds.
         unsafe {
             for outer_value in indexes
                 .iter()

@@ -46,7 +46,7 @@
 //! }
 //! ```
 //!
-//! ### A vec of arrays: `Vec<&[&str]>`
+//! ### A vec of slices: `Vec<&[&str]>`
 //!
 //! ```rust
 //! extern crate permutate;
@@ -104,11 +104,11 @@
 //!         .collect();
 //!
 //!     // Convert the `Vec<Vec<&str>>` into a `Vec<&[&str]>`
-//!     let vector_of_arrays: Vec<&[&str]> = tmp.iter()
+//!     let vector_of_slices: Vec<&[&str]> = tmp.iter()
 //!         .map(AsRef::as_ref).collect();
 //!
 //!     // Initialize the Permutator
-//!     let mut permutator = Permutator::new(&vector_of_arrays);
+//!     let mut permutator = Permutator::new(&vector_of_slices);
 //!
 //!     if let Some(mut permutation) = permutator.next() {
 //!         for element in &permutation {
@@ -125,7 +125,7 @@
 //! }
 //! ```
 //!
-//! //! ### A tuple of arrays: `(&[&str], &[bool])`
+//! ### A tuple of slices: `(&[&str], &[bool])`
 //!
 //! ```rust
 //! extern crate permutate;
@@ -142,11 +142,11 @@
 //!     let mut permutator = Permutator::new(&lists);
 //!
 //!     if let Some(mut permutation) = permutator.next() {
-//!         let _ = stdout.write(permutation.0.to_string().as_bytes());
+//!         let _ = stdout.write(permutation.0.as_bytes());
 //!         let _ = stdout.write(permutation.1.to_string().as_bytes());
 //!         let _ = stdout.write(b"\n");
 //!         while let Some(permutation) = permutator.next_with_buffer(&mut permutation) {
-//!             let _ = stdout.write(permutation.0.to_string().as_bytes());
+//!             let _ = stdout.write(permutation.0.as_bytes());
 //!             let _ = stdout.write(permutation.1.to_string().as_bytes());
 //!             let _ = stdout.write(b"\n");
 //!         }
@@ -160,25 +160,61 @@ mod specializations;
 
 pub use specializations::Repeated;
 
+/// The `PermutatorWrapper` contains the methods (creation, etc) which any Permutator should
+/// implement.
 pub trait PermutatorWrapper<ListWrap, ItemWrap>
 where
     ListWrap: ListWrapper<ItemWrap>,
     ListWrap: ListWrapper<ItemWrap> + ?Sized + Clone,
 {
+    /// Initialize a new `Permutator` with the vec/tuple of input slices to permutate with.
+    /// The input may be provided as either multiple lists via a vec/tuple of slices, or a single
+    /// list as an slice within an array.
     fn new(lists: &ListWrap) -> Permutator<ListWrap, ItemWrap>;
+
+    /// Sets the internal index counter's values to a specific state, which you will
+    /// typically obtain when using the `get_index()` method. The `iter_no` parameter
+    /// will specify what the iteration's position should be. If, for example, you set
+    /// this value to `0`, then it will iterate through all possible permutations,
+    /// including looping around back to the beginning and generating permutations
+    /// for all possible values before the supplied state.
+    ///
+    /// # Panics
+    /// This method will panic if the supplied indexes vector is not the correct length
     fn set_index(&mut self, iter_no: usize, indexes: Vec<usize>);
+
+    /// Obtains the current iteration number and the index counter's indexes.
     fn get_index(&self) -> (usize, Vec<usize>);
+
+    /// Returns the total number of permutations possible
     fn max_permutations(&self) -> usize;
+
+    /// Resets the internal state of the `Permutator` to allow you to start permutating again.
     fn reset(&mut self);
+
+    /// Provides similar functionality as the `Iterator` traits `next` method, but allows the
+    /// ability to either supply your own buffer or re-use the `Vec`/`tuple` created by a prior
+    /// `next` in order to avoid extra allocations.
+    ///
+    /// If there were more methods to compute, then the buffer mutable borrow is returned.  
+    /// Otherwise, None is returned.
+    ///
+    /// # Panics
+    /// This method will panic if the supplied buffer's length is invalid.
     fn next_with_buffer<'b>(&mut self, buffer: &'b mut ItemWrap) -> Option<&'b mut ItemWrap>;
 }
 
+/// The `Permutator` contains the state of the iterator as well as the owned values and/or
+/// references of inputs that are being permutated. The input should be provided as a vector or
+/// tuple of slices of values (or references).
 #[derive(Clone, Debug)]
 pub struct Permutator<ListWrap, ItemWrap>
 where
     ListWrap: ListWrapper<ItemWrap>,
 {
+    /// The indexes is used to point to the next permutation sequence.
     indexes: IndexCounters,
+    /// The internal data that the permutator is permutating against.
     lists: ListWrap,
     _list_item_wrapper: PhantomData<ItemWrap>,
 }
@@ -188,6 +224,7 @@ pub trait ListWrapper<ItemWrap>
 where
     ItemWrap: ?Sized,
 {
+    /// The total number of lists that is being permutated with.
     fn wrapper_len(&self) -> usize;
     fn lens(&self) -> Vec<usize>;
     fn next_item(&self, indexes: &Vec<usize>) -> ItemWrap;
@@ -279,11 +316,14 @@ where
     }
 
     fn next(&mut self) -> Option<Self::Item> {
+        // Without this check, the permutator would cycle forever and never return `None`
+        // because my incrementing algorithim prohibits it.
         if self.indexes.max_iters != 0 && self.indexes.curr_iter == self.indexes.max_iters {
             return None;
         }
 
         self.indexes.curr_iter += 1;
+        // Generates the next permutation sequence using the current indexes.
         let output = ListWrap::next_item(&self.lists, &self.indexes.indexes);
 
         // Increment the indexes to point towards the next set of values.

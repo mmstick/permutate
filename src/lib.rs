@@ -4,15 +4,17 @@ mod specializations;
 
 pub use specializations::Repeated;
 
-/// Abstract the outermost wrapper behaviour
-pub trait ListWrapper<ItemWrap>
+pub trait PermutatorWrapper<ListWrap, ItemWrap>
 where
-    ItemWrap: ?Sized,
+    ListWrap: ListWrapper<ItemWrap>,
+    ListWrap: ListWrapper<ItemWrap> + ?Sized + Clone,
 {
-    fn wrapper_len(&self) -> usize;
-    fn lens(&self) -> Vec<usize>;
-    fn next_item(&self, indexes: &Vec<usize>) -> ItemWrap;
-    fn next_with_buffer(&self, indexes: &Vec<usize>, buffer: &mut ItemWrap) -> ();
+    fn new(lists: &ListWrap) -> Permutator<ListWrap, ItemWrap>;
+    fn set_index(&mut self, iter_no: usize, indexes: Vec<usize>);
+    fn get_index(&self) -> (usize, Vec<usize>);
+    fn max_permutations(&self) -> usize;
+    fn reset(&mut self);
+    fn next_with_buffer<'b>(&mut self, buffer: &'b mut ItemWrap) -> Option<&'b mut ItemWrap>;
 }
 
 #[derive(Clone, Debug)]
@@ -25,11 +27,22 @@ where
     _list_item_wrapper: PhantomData<ItemWrap>,
 }
 
-impl<ListWrap, ItemWrap> Permutator<ListWrap, ItemWrap>
+/// Abstract the outermost wrapper behaviour
+pub trait ListWrapper<ItemWrap>
+where
+    ItemWrap: ?Sized,
+{
+    fn wrapper_len(&self) -> usize;
+    fn lens(&self) -> Vec<usize>;
+    fn next_item(&self, indexes: &Vec<usize>) -> ItemWrap;
+    fn next_with_buffer(&self, indexes: &Vec<usize>, buffer: &mut ItemWrap) -> ();
+}
+
+impl<ListWrap, ItemWrap> PermutatorWrapper<ListWrap, ItemWrap> for Permutator<ListWrap, ItemWrap>
 where
     ListWrap: ListWrapper<ItemWrap> + ?Sized + Clone,
 {
-    pub fn new(lists: &ListWrap) -> Permutator<ListWrap, ItemWrap> {
+    fn new(lists: &ListWrap) -> Permutator<ListWrap, ItemWrap> {
         let nlists = lists.wrapper_len();
         let nvalues = lists.lens();
         let max_iters = nvalues.iter().product();
@@ -46,7 +59,7 @@ where
         }
     }
 
-    pub fn set_index(&mut self, iter_no: usize, indexes: Vec<usize>) {
+    fn set_index(&mut self, iter_no: usize, indexes: Vec<usize>) {
         debug_assert!(
             indexes.len() == self.indexes.lens.len(),
             "indexes have an invalid length"
@@ -56,22 +69,22 @@ where
     }
 
     /// Obtains the current iteration number and the index counter's indexes.
-    pub fn get_index(&self) -> (usize, Vec<usize>) {
+    fn get_index(&self) -> (usize, Vec<usize>) {
         (self.indexes.curr_iter, self.indexes.indexes.clone())
     }
 
     /// Returns the total number of permutations possible
-    pub fn max_permutations(&self) -> usize {
+    fn max_permutations(&self) -> usize {
         self.indexes.max_iters
     }
 
     /// Resets the internal state of the `Permutator` to allow you to start permutating again.
-    pub fn reset(&mut self) {
+    fn reset(&mut self) {
         self.indexes.reset();
         self.indexes.curr_iter = 0;
     }
 
-    pub fn next_with_buffer<'b>(&mut self, buffer: &'b mut ItemWrap) -> Option<&'b mut ItemWrap> {
+    fn next_with_buffer<'b>(&mut self, buffer: &'b mut ItemWrap) -> Option<&'b mut ItemWrap> {
         if self.indexes.max_iters != 0 && self.indexes.curr_iter == self.indexes.max_iters {
             return None;
         }

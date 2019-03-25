@@ -8,7 +8,7 @@ type OneSized<'a, T> = [&'a [T]; 1];
 /// # Example
 ///
 /// ```rust
-/// # use permutate::{Repeated, Permutator};
+/// # use permutate::{Repeated, Permutator, PermutatorWrapper as _};
 /// #
 /// // the permutator `pv`, which indicates the `Repeated` type,
 /// let v = [&["1", "2", "3"][..]];

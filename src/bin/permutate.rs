@@ -10,9 +10,10 @@ use std::process::exit;
 use arguments::InputError;
 use buffer::platform::BUFFER_SIZE;
 use buffer::StdoutBuffer;
-use permutate::Permutator;
+use permutate::{ListWrapper, Permutator, PermutatorWrapper, Repeated};
 
 type PermutatorStr<'a> = Permutator<Vec<&'a [&'a str]>, Vec<&'a str>>;
+type PermutatorRepeated<'a> = Permutator<Repeated<'a, &'a str>, Vec<&'a str>>;
 
 fn main() {
     // First, the program should grab a handle to stdout and stderr and lock them.
@@ -38,17 +39,31 @@ fn main() {
                 .collect();
             let list_array: Vec<&[&str]> = tmp.iter().map(AsRef::as_ref).collect();
 
-            let mut permutator: PermutatorStr = Permutator::new(&list_array);
+            if let _should_repeat @ true = list_array.len() == 1 {
+                let list_array: Repeated<_> = [list_array.into_iter().next().unwrap()];
 
-            if benchmark {
-                let _ = permutator.count();
-            } else {
-                if no_delimiters {
-                    permutate_without_delims(&mut stdout, &mut permutator);
+                let mut permutator: PermutatorRepeated = Permutator::new(&list_array);
+                if benchmark {
+                    let _ = permutator.count();
                 } else {
-                    permutate(&mut stdout, &mut permutator);
+                    if no_delimiters {
+                        permutate_without_delims(&mut stdout, &mut permutator);
+                    } else {
+                        permutate(&mut stdout, &mut permutator);
+                    }
                 }
-            }
+            } else {
+                let mut permutator: PermutatorStr = Permutator::new(&list_array);
+                if benchmark {
+                    let _ = permutator.count();
+                } else {
+                    if no_delimiters {
+                        permutate_without_delims(&mut stdout, &mut permutator);
+                    } else {
+                        permutate(&mut stdout, &mut permutator);
+                    }
+                }
+            };
         }
         Err(why) => {
             let _ = stderr.write(b"permutate: parse error: ");
@@ -72,7 +87,11 @@ fn main() {
     }
 }
 
-fn permutate(stdout: &mut StdoutLock, permutator: &mut PermutatorStr) {
+fn permutate<'a, P, LW>(stdout: &mut StdoutLock, permutator: &'a mut P)
+where
+    P: PermutatorWrapper<LW, Vec<&'a str>> + Iterator<Item = Vec<&'a str>>,
+    LW: ListWrapper<Vec<&'a str>> + Clone,
+{
     let mut buffer = StdoutBuffer::new();
     let mut current_output = permutator.next().unwrap();
     // This first run through will count the number of bytes that will be
@@ -120,7 +139,11 @@ fn permutate(stdout: &mut StdoutLock, permutator: &mut PermutatorStr) {
     let _ = stdout.write_all(&buffer.data[..]);
 }
 
-fn permutate_without_delims(stdout: &mut StdoutLock, permutator: &mut PermutatorStr) {
+fn permutate_without_delims<'a, P, LW>(stdout: &mut StdoutLock, permutator: &'a mut P)
+where
+    P: PermutatorWrapper<LW, Vec<&'a str>> + Iterator<Item = Vec<&'a str>>,
+    LW: ListWrapper<Vec<&'a str>> + Clone,
+{
     // This first run through will count the number of bytes that will be
     // required to print each permutation to standard output.
     let mut buffer = StdoutBuffer::new();

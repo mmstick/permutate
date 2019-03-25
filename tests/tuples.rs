@@ -1,5 +1,5 @@
 extern crate permutate;
-use permutate::Permutator;
+use permutate::{Permutator, PermutatorWrapper as _};
 
 fn get_input<'a>() -> &'a (&'a [&'a str],) {
     &(&["A", "B", "C"],)

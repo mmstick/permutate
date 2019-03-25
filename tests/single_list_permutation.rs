@@ -1,5 +1,5 @@
 extern crate permutate;
-use permutate::{Permutator, Repeated};
+use permutate::{Permutator, PermutatorWrapper as _, Repeated};
 
 fn get_input<'a>() -> [&'a [&'a str]; 1] {
     [&["1", "2", "3"][..]]
@@ -45,6 +45,7 @@ fn get_expected_b<'a>() -> [&'a [&'a str]; 3] {
 fn single_list_permutation() {
     let input = get_input();
     let expected = get_expected();
+
     for (output, expected) in Permutator::<Repeated<_>, _>::new(&input).zip(expected[..].iter()) {
         assert_eq!(&output, expected);
 

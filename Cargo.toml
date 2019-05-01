@@ -16,3 +16,10 @@ doc = false
 [profile.release]
 lto = true
 opt-level = 3
+
+[dev-dependencies]
+criterion = "0.2"
+
+[[bench]]
+name = "my_benchmark"
+harness = false

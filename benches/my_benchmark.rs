@@ -3,10 +3,8 @@ extern crate criterion;
 
 extern crate permutate;
 
-// use permutate::{Permutator, PermutatorWrapper as _};
-use permutate::Permutator;
 use criterion::Criterion;
-use criterion::black_box;
+use permutate::{Permutator, PermutatorWrapper as _};
 
 fn get_input<'a>() -> [&'a [&'a str]; 4] {
     [

@@ -2,7 +2,8 @@
 #![doc(include = "Readme.md")]
 #![deny(missing_docs)]
 
-/// Bin utilities.
+/// Utilities to be used by the binary and benchmarking.
+#[cfg(feature = "bin-utils")]
 pub mod bin;
 
 use std::marker::PhantomData;

@@ -4,7 +4,7 @@ pub mod arguments;
 pub mod buffer;
 pub mod man;
 
-use std::io::{self, StdoutLock, Write};
+use std::io::{self, Write};
 
 use self::buffer::platform::BUFFER_SIZE;
 use self::buffer::StdoutBuffer;

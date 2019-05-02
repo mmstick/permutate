@@ -5,9 +5,7 @@ pub mod buffer;
 pub mod man;
 
 use std::io::{self, StdoutLock, Write};
-use std::process::exit;
 
-use self::arguments::InputError;
 use self::buffer::platform::BUFFER_SIZE;
 use self::buffer::StdoutBuffer;
 use crate::{ListWrapper, Permutator, PermutatorWrapper, Repeated};

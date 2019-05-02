@@ -15,7 +15,7 @@ fn get_input<'a>() -> [&'a [&'a str]; 4] {
     ]
 }
 
-// Check to see if exactly 10,000 permutations were collected.
+// Executes the same function as the binary, for 10,000 permutations.
 fn bin_like_input() {
     let input: Vec<Vec<String>> = get_input()
         .into_iter()

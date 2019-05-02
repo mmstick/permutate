@@ -1,7 +1,7 @@
 use super::man;
 use std::env::args;
 use std::fs;
-use std::io::{BufRead, BufReader, StdoutLock, Write};
+use std::io::{BufRead, BufReader};
 use std::process::exit;
 
 #[derive(Debug)]

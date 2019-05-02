@@ -30,17 +30,18 @@ fn main() {
     let mut list_vector = Vec::new();
     match arguments::parse_arguments(&mut list_vector, &input.join(" "), interpret_files) {
         Ok(_) => {
-            // Convert the Vec<Vec<String>> into a Vec<Vec<&str>>
-            // Convert the Vec<Vec<&str>> into a Vec<&[&str]>
-            // And then convert the `Permutator` with the &[&[&str]] as the input.
-            let tmp: Vec<Vec<&str>> = list_vector
-                .iter()
-                .map(|list| list.iter().map(AsRef::as_ref).collect::<Vec<&str>>())
-                .collect();
-            let list_array: Vec<&[&str]> = tmp.iter().map(AsRef::as_ref).collect();
+            if let _should_repeat @ true = list_vector.len() == 1 {
+                // Convert the Vec<Vec<String>> into a Vec<&str>
+                let list_array: Vec<&str> = list_vector
+                    .iter()
+                    .next()
+                    .unwrap()
+                    .iter()
+                    .map(AsRef::as_ref)
+                    .collect();
 
-            if let _should_repeat @ true = list_array.len() == 1 {
-                let list_array: Repeated<_> = [list_array.into_iter().next().unwrap()];
+                // Convert the Vec<&str> into a [&[&str]; 1]
+                let list_array: Repeated<_> = [list_array.as_ref()];
 
                 let mut permutator: PermutatorRepeated = Permutator::new(&list_array);
                 if benchmark {
@@ -53,6 +54,16 @@ fn main() {
                     }
                 }
             } else {
+                // Convert the Vec<Vec<String>> into a Vec<Vec<&str>>
+                let list_array: Vec<Vec<&str>> = list_vector
+                    .iter()
+                    .map(|list| list.iter().map(AsRef::as_ref).collect::<Vec<&str>>())
+                    .collect();
+
+                // Convert the Vec<Vec<&str>> into a Vec<&[&str]>
+                let list_array: Vec<&[&str]> = list_array.iter().map(AsRef::as_ref).collect();
+
+                // And then convert the `Permutator` with the &[&[&str]] as the input.
                 let mut permutator: PermutatorStr = Permutator::new(&list_array);
                 if benchmark {
                     let _ = permutator.count();

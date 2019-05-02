@@ -1,5 +1,5 @@
 #![feature(external_doc)]
-#![doc(include = "Readme.md")]
+#![doc(include = "../README.md")]
 #![deny(missing_docs)]
 
 /// Utilities to be used by the binary and benchmarking.

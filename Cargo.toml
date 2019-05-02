@@ -10,7 +10,8 @@ keywords = ["permutate", "permutator"]
 readme = "README.md"
 
 [[bin]]
-name = "permutate"
+name = "permutate-bin"
+path = "src/bin/main.rs"
 doc = false
 
 [profile.release]

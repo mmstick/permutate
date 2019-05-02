@@ -4,7 +4,7 @@ extern crate criterion;
 extern crate permutate;
 
 use criterion::Criterion;
-use permutate::{Permutator, PermutatorWrapper as _, Repeated};
+use permutate::{bin, Permutator, PermutatorWrapper as _};
 
 fn get_input<'a>() -> [&'a [&'a str]; 4] {
     [
@@ -21,43 +21,8 @@ fn bin_like_input() {
         .into_iter()
         .map(|v| v.into_iter().cloned().map(String::from).collect())
         .collect();
-    let count = bin_like_behaviour(input);
-    assert_eq!(10_000, count);
-}
-
-fn bin_like_behaviour(list_vector: Vec<Vec<String>>) -> usize {
-    type PermutatorStr<'a> = Permutator<Vec<&'a [&'a str]>, Vec<&'a str>>;
-    type PermutatorRepeated<'a> = Permutator<Repeated<'a, &'a str>, Vec<&'a str>>;
-
-    if let _should_repeat @ true = list_vector.len() == 1 {
-        // Convert the Vec<Vec<String>> into a Vec<&str>
-        let list_array: Vec<&str> = list_vector
-            .iter()
-            .next()
-            .unwrap()
-            .iter()
-            .map(AsRef::as_ref)
-            .collect();
-
-        // Convert the Vec<&str> into a [&[&str]; 1]
-        let list_array: Repeated<_> = [list_array.as_ref()];
-
-        let mut permutator: PermutatorRepeated = Permutator::new(&list_array);
-        permutator.count()
-    } else {
-        // Convert the Vec<Vec<String>> into a Vec<Vec<&str>>
-        let list_array: Vec<Vec<&str>> = list_vector
-            .iter()
-            .map(|list| list.iter().map(AsRef::as_ref).collect::<Vec<&str>>())
-            .collect();
-
-        // Convert the Vec<Vec<&str>> into a Vec<&[&str]>
-        let list_array: Vec<&[&str]> = list_array.iter().map(AsRef::as_ref).collect();
-
-        // And then convert the `Permutator` with the &[&[&str]] as the input.
-        let mut permutator: PermutatorStr = Permutator::new(&list_array);
-        permutator.count()
-    }
+    let (benchmark, _no_delimiters) = (true, false);
+    bin::prepare(input, benchmark, _no_delimiters);
 }
 
 // Check to see if exactly 10,000 permutations were collected.

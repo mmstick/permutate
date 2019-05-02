@@ -1,6 +1,9 @@
 #![feature(external_doc)]
 #![doc(include = "Readme.md")]
-#![forbid(missing_docs)]
+#![deny(missing_docs)]
+
+/// Bin utilities.
+pub mod bin;
 
 use std::marker::PhantomData;
 

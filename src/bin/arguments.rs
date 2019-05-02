@@ -1,4 +1,4 @@
-use man;
+use super::man;
 use std::env::args;
 use std::fs;
 use std::io::{BufRead, BufReader, StdoutLock, Write};
@@ -12,7 +12,7 @@ pub enum InputError {
 }
 
 /// Scans input arguments for flags that control the behaviour of the program.
-pub fn parse_options(stdout: &mut StdoutLock) -> (Vec<String>, bool, bool, bool) {
+pub fn parse_options() -> (Vec<String>, bool, bool, bool) {
     let mut input = Vec::new();
     let (mut benchmark, mut interpret_files, mut no_delimiters) = (false, false, false);
     for argument in args().skip(1) {
@@ -20,7 +20,7 @@ pub fn parse_options(stdout: &mut StdoutLock) -> (Vec<String>, bool, bool, bool)
             "-b" | "--benchmark" => benchmark = true,
             "-f" | "--files" => interpret_files = true,
             "-h" | "--help" => {
-                let _ = stdout.write(man::MANPAGE.as_bytes());
+                println!("{}", man::MANPAGE);
                 exit(0);
             }
             "-n" | "--no-delimiters" => no_delimiters = true,

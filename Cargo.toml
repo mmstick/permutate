@@ -9,9 +9,24 @@ documentation = "https://docs.rs/permutate/0.1.0/permutate/"
 keywords = ["permutate", "permutator"]
 readme = "README.md"
 
+[features]
+# if set then the binary utilities are included
+bin-utils = [] 
+default = ["bin-utils"]
+
 [[bin]]
-name = "permutate"
+name = "permutate-bin"
+path = "src/bin/main.rs"
 doc = false
+required-features = ["bin-utils"]
+
+[[bench]]
+name = "my_benchmark"
+harness = false
+required-features = ["bin-utils"]
+
+[dev-dependencies]
+criterion = "0.2"
 
 [profile.release]
 lto = true

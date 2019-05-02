@@ -8,19 +8,22 @@ pub mod platform {
     pub const BUFFER_SIZE: usize = 64 * 1024; // 4.75% performance boost over 16K buffers
 }
 
-use std::io::{StdoutLock, Write};
 use self::platform::BUFFER_SIZE;
+use std::io::{StdoutLock, Write};
 
 /// Manual buffer implementation for buffering standard output.
 pub struct StdoutBuffer {
-    pub data:     [u8; BUFFER_SIZE],
+    pub data: [u8; BUFFER_SIZE],
     pub capacity: usize,
 }
 
 impl StdoutBuffer {
     /// Create a new `Buffer` initialized to be empty.
     pub fn new() -> StdoutBuffer {
-        StdoutBuffer { data: [0u8; BUFFER_SIZE], capacity: 0 }
+        StdoutBuffer {
+            data: [0u8; BUFFER_SIZE],
+            capacity: 0,
+        }
     }
 
     /// Write the buffer's contents to stdout and clear itself.
